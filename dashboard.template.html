@@ -294,6 +294,12 @@ tbody tr:hover td{background:var(--sage-100);}
     <button class="nav-btn" data-tab="comparativo" onclick="showTab('comparativo',this)">
       <span class="nav-dot"></span><span class="nav-lbl">Meta vs Org&aacute;nico</span>
     </button>
+    <button class="nav-btn" data-tab="categorias" onclick="showTab('categorias',this)">
+      <span class="nav-dot"></span><span class="nav-lbl">Categor&iacute;as activos</span>
+    </button>
+    <button class="nav-btn" data-tab="estado" onclick="showTab('estado',this)">
+      <span class="nav-dot"></span><span class="nav-lbl">Por estado</span>
+    </button>
     <button class="nav-btn" data-tab="ultima" onclick="showTab('ultima',this)">
       <span class="nav-dot"></span><span class="nav-lbl">&Uacute;ltima compra</span>
     </button>
@@ -482,6 +488,93 @@ tbody tr:hover td{background:var(--sage-100);}
     </div>
   </div>
 
+  <!-- ─── TAB: CATEGORÍAS ACTIVOS ─── -->
+  <div class="tab-page" id="tab-categorias">
+    <div class="main-header">
+      <div class="page-title">Categor&iacute;as de activos</div>
+      <div class="page-sub filter-summary"></div>
+    </div>
+    <div class="main-content">
+      <div class="sec-title">Distribuci&oacute;n por categor&iacute;a</div>
+      <div class="chart-grid-3" style="grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);">
+        <div class="table-card" style="box-shadow:var(--shadow);">
+          <div class="table-card-hd"><span class="table-card-title">Activas por categor&iacute;a</span></div>
+          <div class="table-wrap">
+            <table><thead><tr>
+              <th>Categor&iacute;a</th><th>Activas</th><th>% del total</th>
+            </tr></thead>
+            <tbody id="tbody-cat"></tbody></table>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-title">Distribuci&oacute;n visual</div>
+          <div id="cat-bars" style="display:grid;grid-template-columns:auto 1fr auto;gap:6px 12px;align-items:center;padding:4px 0;"></div>
+        </div>
+      </div>
+
+      <div class="sec-title">Frecuencia de compra</div>
+      <div class="chart-grid-3" style="grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);">
+        <div class="table-card" style="box-shadow:var(--shadow);">
+          <div class="table-card-hd"><span class="table-card-title">Cu&aacute;ntas compraron en X ciclos</span></div>
+          <div class="table-wrap">
+            <table><thead><tr>
+              <th>Ciclos comprados</th><th>Cantidad</th><th>% del total</th>
+            </tr></thead>
+            <tbody id="tbody-freq"></tbody></table>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-title">Histograma de fidelidad</div>
+          <canvas id="chart-freq" height="220"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── TAB: POR ESTADO ─── -->
+  <div class="tab-page" id="tab-estado">
+    <div class="main-header">
+      <div class="page-title">Por estado</div>
+      <div class="page-sub filter-summary"></div>
+    </div>
+    <div class="main-content">
+      <div class="sec-title">Selecci&oacute;n de segmento</div>
+      <div class="table-card" style="margin-bottom:12px;">
+        <div class="detail-controls" style="align-items:flex-end;">
+          <div style="min-width:180px;">
+            <span class="filter-lbl" style="padding:0;">Estado</span>
+            <select class="filter-select" id="est-estado" onchange="renderEstado()">
+              <option value="lead">Leads no registrados</option>
+              <option value="reg">Registradas no activas</option>
+              <option value="act" selected>Activas</option>
+            </select>
+          </div>
+          <div style="min-width:200px;" id="est-ultima-wrap">
+            <span class="filter-lbl" style="padding:0;">&Uacute;ltima compra</span>
+            <select class="filter-select" id="est-ultima" onchange="renderEstado()">
+              <option value="">Todas las activas</option>
+            </select>
+          </div>
+          <div style="flex:1;min-width:120px;font-size:12px;color:var(--text-muted);" id="est-hint"></div>
+          <button class="btn-excel" onclick="descargarExcel('est')">&#8681; Descargar Excel</button>
+        </div>
+      </div>
+
+      <div class="sec-title">Listado</div>
+      <div class="table-card">
+        <div class="detail-controls">
+          <input type="search" class="search-input" id="q-est" placeholder="Buscar nombre, RUT, comuna, directora&hellip;" oninput="onSearch('est')"/>
+          <span class="detail-count" id="count-est">&mdash;</span>
+        </div>
+        <div class="table-wrap">
+          <table><thead><tr id="thead-est"></tr></thead>
+          <tbody id="tbody-est"></tbody></table>
+        </div>
+        <div class="pagination" id="pag-est"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ─── TAB: ÚLTIMA COMPRA ─── -->
   <div class="tab-page" id="tab-ultima">
     <div class="main-header">
@@ -555,6 +648,7 @@ const T = {
   res: { q:"", page:1 },
   ult: { q:"", page:1 },
   det: { q:"", page:1 },
+  est: { q:"", page:1 },
 };
 let activeTab = "resumen";
 
@@ -698,10 +792,27 @@ function onSearch(key) {
 }
 
 function rowsFor(key) {
-  let rows = key === "ult"
-    ? filtered.filter(d => d.ultima !== "" && d.ultima != null)
-        .sort((a, b) => (b.ultima||0) - (a.ultima||0))
-    : filtered;
+  let rows;
+  if (key === "ult") {
+    rows = filtered.filter(d => d.ultima !== "" && d.ultima != null)
+      .sort((a, b) => (b.ultima||0) - (a.ultima||0));
+  } else if (key === "est") {
+    const estado = document.getElementById("est-estado")?.value || "act";
+    if (estado === "lead")      rows = filtered.filter(d => d.registrado !== "Sí");
+    else if (estado === "reg")  rows = filtered.filter(d => d.registrado === "Sí" && d.activa !== "Sí");
+    else                        rows = filtered.filter(d => d.activa === "Sí");
+    // sub-filtro: ultima compra en X (solo aplica a activas)
+    const uSel = document.getElementById("est-ultima")?.value || "";
+    if (estado === "act" && uSel !== "") {
+      rows = rows.filter(d => String(d.ultima) === uSel);
+    }
+    // ordenar activas por ultima compra desc, resto por nombre
+    rows = estado === "act"
+      ? rows.sort((a, b) => (b.ultima||0) - (a.ultima||0))
+      : rows.sort((a, b) => (a.nombre||"").localeCompare(b.nombre||"", "es"));
+  } else {
+    rows = filtered;
+  }
   const q = T[key].q;
   if (!q) return rows;
   return rows.filter(d =>
@@ -718,6 +829,8 @@ function renderAll() {
   renderDirectoras();
   renderTerritorio();
   renderComparativo();
+  renderCategorias();
+  renderEstado();
   renderTable("res");
   renderTable("ult");
   renderTable("det");
@@ -729,6 +842,7 @@ function drawAllCharts() {
   drawCanal();
   drawFunnel("chart-funnel-meta", filtered.filter(d => d.canal === "Meta"), "#1877F2", "#5a9ffa");
   drawFunnel("chart-funnel-org",  filtered.filter(d => d.canal === "Orgánico"), "#00833e", "#3f9e69");
+  drawFrequency();
 }
 
 function renderKPIs() {
@@ -823,6 +937,196 @@ function renderTerritorio() {
   `).join("");
 }
 
+/* ── CATEGORÍAS ACTIVOS ─────────────────── */
+function renderCategorias() {
+  const activas = filtered.filter(d => d.activa === "Sí");
+  const total = activas.length;
+  const map = {};
+  activas.forEach(d => {
+    const k = (d.categoria || "Sin categoría").trim() || "Sin categoría";
+    map[k] = (map[k] || 0) + 1;
+  });
+  const rows = Object.entries(map).sort((a, b) => b[1] - a[1]);
+  const max = rows[0]?.[1] || 1;
+
+  document.getElementById("tbody-cat").innerHTML = rows.map(([c, n]) => `
+    <tr>
+      <td style="font-weight:700;color:var(--green-dark)">${esc(c)}</td>
+      <td style="font-weight:800;font-size:14px">${n.toLocaleString("es-CL")}</td>
+      <td style="color:var(--text-muted)">${total ? (n/total*100).toFixed(1) : "0.0"}%</td>
+    </tr>`).join("") || `<tr><td colspan="3" style="padding:20px;text-align:center;color:var(--text-faint)">Sin activas para mostrar</td></tr>`;
+
+  document.getElementById("cat-bars").innerHTML = rows.map(([c, n]) => `
+    <div style="font-size:11px;font-weight:700;color:var(--text);white-space:nowrap;">${esc(c)}</div>
+    <div style="background:var(--sage-200);border-radius:3px;height:8px;overflow:hidden;">
+      <div style="height:100%;width:${Math.round(n/max*100)}%;background:var(--green);border-radius:3px;"></div>
+    </div>
+    <div style="font-size:11.5px;font-weight:700;color:var(--text-muted);font-variant-numeric:tabular-nums;">${n}</div>
+  `).join("");
+
+  // frecuencia de compra (basada en ciclos_comp de las activas)
+  const freq = {};
+  activas.forEach(d => {
+    const n = d.ciclos_comp || 0;
+    if (n > 0) freq[n] = (freq[n] || 0) + 1;
+  });
+  const fRows = Object.entries(freq)
+    .map(([k, v]) => ({ k: +k, v }))
+    .sort((a, b) => b.k - a.k);
+  const totalF = fRows.reduce((s, r) => s + r.v, 0);
+  document.getElementById("tbody-freq").innerHTML = fRows.map(r => `
+    <tr>
+      <td style="font-weight:700">${r.k} ciclo${r.k===1?"":"s"}</td>
+      <td style="font-weight:800;font-size:14px">${r.v.toLocaleString("es-CL")}</td>
+      <td style="color:var(--text-muted)">${totalF ? (r.v/totalF*100).toFixed(1) : "0.0"}%</td>
+    </tr>`).join("") || `<tr><td colspan="3" style="padding:20px;text-align:center;color:var(--text-faint)">Sin datos de frecuencia</td></tr>`;
+}
+
+/* ── POR ESTADO ─────────────────────────── */
+function renderEstado() {
+  // poblar sub-filtro de ultima compra segun activas disponibles
+  const activas = filtered.filter(d => d.activa === "Sí" && d.ultima !== "" && d.ultima != null);
+  const ciclos = [...new Set(activas.map(d => d.ultima))].sort((a, b) => b - a);
+  const uSel = document.getElementById("est-ultima");
+  const uPrev = uSel.value;
+  while (uSel.options.length > 1) uSel.remove(1);
+  ciclos.forEach(c => {
+    const n = activas.filter(d => d.ultima === c).length;
+    const o = document.createElement("option");
+    o.value = String(c);
+    o.textContent = `Última compra en C${c} (${n})`;
+    uSel.appendChild(o);
+  });
+  if ([...uSel.options].some(o => o.value === uPrev)) uSel.value = uPrev;
+
+  const estado = document.getElementById("est-estado").value;
+  const uWrap = document.getElementById("est-ultima-wrap");
+  uWrap.style.display = (estado === "act") ? "" : "none";
+
+  const hints = {
+    lead: "Personas que llegaron como lead pero aún no se registran en Bionet.",
+    reg:  "Se registraron en Bionet pero nunca hicieron una primera compra.",
+    act:  "Distribuidoras con al menos una compra. Filtra por su último ciclo comprado."
+  };
+  document.getElementById("est-hint").textContent = hints[estado] || "";
+
+  // headers dinamicos segun estado
+  const thead = document.getElementById("thead-est");
+  if (estado === "lead") {
+    thead.innerHTML = `<th>Nombre</th><th>Correo</th><th>Regi&oacute;n</th><th>Comuna</th><th>Canal</th><th>Ciclo Lead</th><th>Directora (auto)</th>`;
+  } else if (estado === "reg") {
+    thead.innerHTML = `<th>Nombre</th><th>RUT</th><th>Regi&oacute;n</th><th>Comuna</th><th>Canal</th><th>Ciclo Lead</th><th>Ciclo Reg.</th><th>D&iacute;as R.</th><th>Directora</th>`;
+  } else {
+    thead.innerHTML = `<th>&Uacute;lt. compra</th><th>Ciclos</th><th>Nombre</th><th>RUT</th><th>Categor&iacute;a</th><th>Regi&oacute;n</th><th>Comuna</th><th>Directora</th><th>Patrocinador</th>`;
+  }
+
+  T.est.page = 1;
+  renderTable("est");
+}
+
+function rowEst(d) {
+  const estado = document.getElementById("est-estado")?.value || "act";
+  if (estado === "lead") {
+    return `<tr>
+      <td style="font-weight:600;white-space:nowrap">${esc(d.nombre)}</td>
+      <td style="font-size:11.5px;color:var(--text-muted)">${esc(d.correo)||"—"}</td>
+      <td style="font-size:11.5px">${esc(d.region)}</td>
+      <td style="font-size:11.5px">${esc(d.comuna)}</td>
+      <td>${cTag(d.canal)}</td>
+      <td style="text-align:center">${d.ciclo_lead !== "" ? d.ciclo_lead : "—"}</td>
+      <td style="font-size:11.5px;white-space:nowrap">${esc(d.directora_auto)||"—"}</td>
+    </tr>`;
+  }
+  if (estado === "reg") {
+    // dias desde registro sin activarse: aproxima con dias_lr como referencia? mejor usar (hoy - fecha_reg).
+    // aca solo mostramos ciclos y dias_lr como pista
+    return `<tr>
+      <td style="font-weight:600;white-space:nowrap">${esc(d.nombre)}</td>
+      <td style="font-size:11px;color:var(--text-muted)">${esc(d.rut)||"—"}</td>
+      <td style="font-size:11.5px">${esc(d.region)}</td>
+      <td style="font-size:11.5px">${esc(d.comuna)}</td>
+      <td>${cTag(d.canal)}</td>
+      <td style="text-align:center">${d.ciclo_lead !== "" ? d.ciclo_lead : "—"}</td>
+      <td style="text-align:center">${d.ciclo_reg !== "" ? d.ciclo_reg : "—"}</td>
+      <td style="text-align:center">${d.dias_lr !== "" ? d.dias_lr : "—"}</td>
+      <td style="font-size:11.5px;white-space:nowrap">${esc(d.directora_auto)||"—"}</td>
+    </tr>`;
+  }
+  // activa
+  return `<tr>
+    <td style="text-align:center;font-weight:800;color:var(--green-dark)">${ult(d.ultima)}</td>
+    <td style="text-align:center;font-weight:700">${d.ciclos_comp || 0}</td>
+    <td style="font-weight:600;white-space:nowrap">${esc(d.nombre)}</td>
+    <td style="font-size:11px;color:var(--text-muted)">${esc(d.rut)||"—"}</td>
+    <td><span class="tag" style="background:var(--green-100);color:var(--green-dark)">${esc(d.categoria)||"—"}</span></td>
+    <td style="font-size:11.5px">${esc(d.region)}</td>
+    <td style="font-size:11.5px">${esc(d.comuna)}</td>
+    <td style="font-size:11.5px;white-space:nowrap">${esc(d.directora_auto)||"—"}</td>
+    <td style="font-size:11.5px;white-space:nowrap">${esc(d.patrocinador)||"—"}</td>
+  </tr>`;
+}
+
+/* ── HISTOGRAMA FRECUENCIA COMPRA ────────── */
+function drawFrequency() {
+  const s = setupCanvas("chart-freq", 220); if (!s) return;
+  const { ctx, cw, ch } = s;
+  const dark = isDark();
+  const textC = dark ? "#7a9a78" : "#767c76";
+  const textS = dark ? "#e2ede0" : "#333";
+  const gridC = dark ? "#243120" : "#e2e6e1";
+  const activas = filtered.filter(d => d.activa === "Sí");
+
+  // freq[n] = cuantas activas compraron en exactamente n ciclos
+  const freq = {};
+  activas.forEach(d => {
+    const n = d.ciclos_comp || 0;
+    if (n > 0) freq[n] = (freq[n] || 0) + 1;
+  });
+  const keys = Object.keys(freq).map(Number).sort((a, b) => a - b);
+  if (!keys.length) {
+    ctx.clearRect(0, 0, cw, ch);
+    ctx.fillStyle = textC; ctx.font = "12px 'Helvetica Neue',Arial"; ctx.textAlign = "center";
+    ctx.fillText("Sin datos de frecuencia", cw/2, ch/2);
+    return;
+  }
+
+  const padL = 32, padR = 12, padT = 16, padB = 34;
+  const chartW = cw - padL - padR, chartH = ch - padT - padB;
+  const maxV = Math.max(...keys.map(k => freq[k]));
+  const step = chartW / keys.length;
+  const barW = Math.max(10, step * 0.62);
+
+  ctx.clearRect(0, 0, cw, ch);
+  // grid
+  [.25, .5, .75, 1].forEach(f => {
+    const y = padT + chartH * (1 - f);
+    ctx.strokeStyle = gridC; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + chartW, y); ctx.stroke();
+    ctx.fillStyle = textC; ctx.font = "9px 'Helvetica Neue',Arial"; ctx.textAlign = "right";
+    ctx.fillText(Math.round(maxV * f), padL - 4, y + 3);
+  });
+  // barras
+  keys.forEach((k, i) => {
+    const v = freq[k];
+    const bh = (v / maxV) * chartH;
+    const x = padL + i * step + (step - barW)/2;
+    const y = padT + chartH - bh;
+    const g = ctx.createLinearGradient(0, y, 0, y + bh);
+    g.addColorStop(0, "#3f9e69"); g.addColorStop(1, "#00833e");
+    ctx.fillStyle = g;
+    rr(ctx, x, y, barW, bh, 3); ctx.fill();
+    // valor arriba
+    ctx.fillStyle = textS; ctx.font = "700 10px 'Helvetica Neue',Arial"; ctx.textAlign = "center";
+    ctx.fillText(v, x + barW/2, y - 4);
+    // label abajo (numero de ciclos)
+    ctx.fillStyle = textC; ctx.font = "10px 'Helvetica Neue',Arial";
+    ctx.fillText(k + " c.", x + barW/2, ch - 14);
+  });
+  // eje x label
+  ctx.fillStyle = textC; ctx.font = "9px 'Helvetica Neue',Arial"; ctx.textAlign = "center";
+  ctx.fillText("cantidad de ciclos con compra", padL + chartW/2, ch - 3);
+}
+
 /* ── TABLAS PAGINADAS ───────────────────── */
 function renderTable(key) {
   const rows = rowsFor(key);
@@ -832,8 +1136,8 @@ function renderTable(key) {
   const slice = rows.slice((T[key].page-1)*PAGE_SIZE, T[key].page*PAGE_SIZE);
   setText("count-" + key, total.toLocaleString("es-CL") + " registros");
 
-  const render = { res: rowRes, ult: rowUlt, det: rowDet }[key];
-  const cols   = { res: 8, ult: 9, det: 15 }[key];
+  const render = { res: rowRes, ult: rowUlt, det: rowDet, est: rowEst }[key];
+  const cols   = { res: 8, ult: 9, det: 15, est: 9 }[key];
   document.getElementById("tbody-" + key).innerHTML =
     slice.map(render).join("") ||
     `<tr><td colspan="${cols}" style="padding:24px;text-align:center;color:var(--text-faint)">Sin resultados</td></tr>`;
@@ -904,11 +1208,13 @@ function descargarExcel(key) {
   const rows = rowsFor(key);
   const headers = ["RUT","Nombre","Correo","Teléfono","Región","Comuna","Canal",
     "Fecha Lead","Ciclo Lead","Fecha Registro","Ciclo Registro","Primera Compra","Ciclo Activación",
-    "Días Lead a Registro","Días Registro a Activación","Registrado","Activa","Tipo","Última compra (ciclo)",
+    "Días Lead a Registro","Días Registro a Activación","Registrado","Activa","Tipo","Categoría",
+    "Ciclos comprados","Última compra (ciclo)",
     "Directora Asignada Auto","Patrocinador"];
   const csvRow = d => [d.rut,d.nombre,d.correo,d.telefono,d.region,d.comuna,d.canal,
     d.fecha_lead,d.ciclo_lead,d.fecha_reg,d.ciclo_reg,d.fecha_act,d.ciclo_act,
-    d.dias_lr,d.dias_ra,d.registrado,d.activa,d.tipo,d.ultima,
+    d.dias_lr,d.dias_ra,d.registrado,d.activa,d.tipo,d.categoria,
+    d.ciclos_comp,d.ultima,
     d.directora_auto,d.patrocinador]
     .map(v => {
       const s = String(v == null ? "" : v);
@@ -919,7 +1225,10 @@ function descargarExcel(key) {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   const hoy = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-  a.download = `leads_biogreen_${key === "ult" ? "ultima_compra_" : ""}${hoy}.csv`;
+  const suffix = key === "ult" ? "ultima_compra_"
+               : key === "est" ? `estado_${document.getElementById("est-estado")?.value||""}_`
+               : "";
+  a.download = `leads_biogreen_${suffix}${hoy}.csv`;
   a.click();
   URL.revokeObjectURL(a.href);
 }
