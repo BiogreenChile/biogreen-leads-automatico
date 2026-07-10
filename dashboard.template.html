@@ -306,6 +306,9 @@ tbody tr:hover td{background:var(--sage-100);}
     <button class="nav-btn" data-tab="detalle" onclick="showTab('detalle',this)">
       <span class="nav-dot"></span><span class="nav-lbl">Detalle leads</span>
     </button>
+    <button class="nav-btn" data-tab="zonas" onclick="showTab('zonas',this)">
+      <span class="nav-dot"></span><span class="nav-lbl">Zonas directoras</span>
+    </button>
   </nav>
 
   <div class="sidebar-filters">
@@ -628,6 +631,26 @@ tbody tr:hover td{background:var(--sage-100);}
     </div>
   </div>
 
+  <!-- ══════════ TAB: ZONAS DIRECTORAS ══════════ -->
+  <div class="tab-page" id="tab-zonas">
+    <div class="main-header">
+      <div class="page-title">Zonas por directora</div>
+      <div class="page-sub">Regiones y comunas asignadas según tabla de distribuidores</div>
+    </div>
+    <div class="main-content">
+      <div class="table-card" style="margin-top:8px;padding:16px 20px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;">
+          <label style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Directora</label>
+          <select id="sel-zona-dir" onchange="renderZonas()" style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:14px;min-width:220px;cursor:pointer;">
+            <option value="">Seleccionar directora...</option>
+          </select>
+          <span id="zona-resumen" style="font-size:12px;color:var(--text-muted);"></span>
+        </div>
+        <div id="zonas-body"></div>
+      </div>
+    </div>
+  </div>
+
   <div class="main-footer">Biogreen Chile &middot; Dashboard Leads Autom&aacute;tico &middot; AutomationPlatform</div>
 </div><!-- /main -->
 </div><!-- /shell -->
@@ -637,6 +660,7 @@ tbody tr:hover td{background:var(--sage-100);}
 const ENC_PAYLOAD = "__ENC_PAYLOAD__";
 let META_DATA = { actualizado: "—" };
 let DATA = [];
+let ZONAS = {};
 </script>
 
 <!-- ══════════ APP ══════════ -->
@@ -683,11 +707,12 @@ async function doUnlock(savedPw) {
       keyMat, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
     const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64buf(payload.iv) }, key, b64buf(payload.ct));
     const obj = JSON.parse(new TextDecoder().decode(pt));
-    META_DATA = obj.meta; DATA = obj.data;
+    META_DATA = obj.meta; DATA = obj.data; ZONAS = obj.zonas || {};
     sessionStorage.setItem("bg_dash_key", pw);
     document.getElementById("lock-overlay").style.display = "none";
     document.getElementById("ts-updated").textContent = META_DATA.actualizado;
     populateFilters();
+    populateZonas();
     applyFilters();
   } catch (e) {
     btn.disabled = false;
@@ -1337,6 +1362,47 @@ function esc(s){if(s==null)return"";return String(s).replace(/&/g,"&amp;").repla
 
 let rt;
 window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(drawAllCharts, 120); });
+
+/* ── ZONAS DIRECTORAS ───────────────────── */
+function populateZonas() {
+  const sel = document.getElementById("sel-zona-dir");
+  sel.innerHTML = '<option value="">Seleccionar directora...</option>';
+  Object.keys(ZONAS).sort().forEach(d => {
+    const o = document.createElement("option");
+    o.value = d; o.textContent = d;
+    sel.appendChild(o);
+  });
+}
+
+function renderZonas() {
+  const dir = document.getElementById("sel-zona-dir").value;
+  const body = document.getElementById("zonas-body");
+  const resumen = document.getElementById("zona-resumen");
+  if (!dir) { body.innerHTML = ""; resumen.textContent = ""; return; }
+
+  const zonaDir = ZONAS[dir] || {};
+  const regiones = Object.keys(zonaDir).sort();
+  const totalComunas = regiones.reduce((s, r) => s + zonaDir[r].length, 0);
+
+  resumen.textContent = `${regiones.length} región${regiones.length!==1?"es":""} · ${totalComunas} comuna${totalComunas!==1?"s":""}`;
+
+  let html = '<div style="display:grid;gap:14px;">';
+  regiones.forEach(reg => {
+    const comunas = zonaDir[reg].sort();
+    html += `
+      <div style="border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden;">
+        <div style="background:var(--green-100);padding:10px 14px;font-size:12px;font-weight:700;color:var(--green-900);display:flex;align-items:center;justify-content:space-between;">
+          <span>📍 ${esc(reg)}</span>
+          <span style="font-weight:400;color:var(--text-muted);font-size:11px;">${comunas.length} comuna${comunas.length!==1?"s":""}</span>
+        </div>
+        <div style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:6px;">
+          ${comunas.map(c => `<span style="background:var(--surface-2);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:12px;color:var(--text);">${esc(c)}</span>`).join("")}
+        </div>
+      </div>`;
+  });
+  html += "</div>";
+  body.innerHTML = regiones.length ? html : '<p style="color:var(--text-muted);font-size:13px;">Sin zonas asignadas.</p>';
+}
 </script>
 </body>
 </html>
