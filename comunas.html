@@ -278,6 +278,46 @@
       transform: none;
     }
 
+    /* ── Ya registrado ── */
+    #state-registrado {
+      text-align: center;
+      padding: 24px 0 16px;
+      display: none;
+    }
+    .registrado-icon-wrap {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, #1565C0, #0D47A1);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 22px;
+      box-shadow: 0 6px 20px rgba(13,71,161,0.3);
+    }
+    .registrado-icon-wrap svg { width: 38px; height: 38px; }
+    #state-registrado h2 { color: #0D47A1; font-size: 22px; margin-bottom: 10px; }
+    #state-registrado .comuna-bloqueada {
+      display: inline-block;
+      background: linear-gradient(135deg, #1565C0, #0D47A1);
+      color: #fff;
+      font-size: 20px;
+      font-weight: 700;
+      padding: 12px 28px;
+      border-radius: 10px;
+      margin: 14px 0 18px;
+      box-shadow: 0 4px 14px rgba(13,71,161,0.25);
+    }
+    #state-registrado p { color: #555; font-size: 14px; line-height: 1.6; }
+
+    /* ── RUT checking ── */
+    .rut-checking {
+      font-size: 12px;
+      color: #888;
+      margin-top: 4px;
+      display: none;
+    }
+
     /* ── Success ── */
     #state-success {
       text-align: center;
@@ -399,6 +439,7 @@
         <label for="inp-rut">RUT <span class="req">*</span></label>
         <input type="text" id="inp-rut" placeholder="Ej: 12.345.678-9" maxlength="12" autocomplete="off">
         <div class="field-error" id="err-rut">RUT inválido. Formato: 12.345.678-9</div>
+        <div class="rut-checking" id="rut-checking">Verificando RUT…</div>
       </div>
 
       <div class="field">
@@ -427,6 +468,19 @@
       <button class="btn-submit" id="btn-submit" type="button">
         Confirmar asignación →
       </button>
+    </div>
+
+    <!-- Ya registrado -->
+    <div id="state-registrado">
+      <div class="registrado-icon-wrap">
+        <svg viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M19 8v12M19 26v2" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <h2>Ya tienes una comuna asignada</h2>
+      <p>Este RUT ya fue registrado en el sistema.</p>
+      <div class="comuna-bloqueada" id="nombre-comuna-registrada">—</div>
+      <p>Ante cualquier duda, contáctate con nosotros.</p>
     </div>
 
     <!-- Success -->
@@ -553,6 +607,27 @@
 
     document.addEventListener('click', (e) => {
       if (!document.getElementById('dd-wrap').contains(e.target)) cerrarDropdown();
+    });
+
+    // ─── VERIFICAR RUT ───────────────────────────────────────────────────────
+    const rutChecking = document.getElementById('rut-checking');
+
+    inpRut.addEventListener('blur', async () => {
+      if (!validarRUT(inpRut.value)) return;
+      rutChecking.style.display = 'block';
+      try {
+        const params = new URLSearchParams({ action: 'checkRut', secret: SECRET, rut: inpRut.value.trim() });
+        const res  = await fetch(`${WEBAPP_URL}?${params}`);
+        const data = await res.json();
+        rutChecking.style.display = 'none';
+        if (data.registrado) {
+          stateForm.style.display = 'none';
+          document.getElementById('state-registrado').style.display = 'block';
+          document.getElementById('nombre-comuna-registrada').textContent = data.comuna || '—';
+        }
+      } catch (_) {
+        rutChecking.style.display = 'none';
+      }
     });
 
     // ─── RUT ─────────────────────────────────────────────────────────────────
