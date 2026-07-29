@@ -119,6 +119,29 @@
     }
     label span.req { color: #2E7D32; }
 
+    select {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1.5px solid #ddd;
+      border-radius: 8px;
+      font-size: 15px;
+      color: #1a1a1a;
+      background: #fafafa;
+      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%232E7D32' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14L2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 36px;
+    }
+    select:focus {
+      border-color: #2E7D32;
+      background-color: #fff;
+      box-shadow: 0 0 0 3px rgba(46,125,50,0.12);
+    }
+
     input[type="text"],
     input[type="email"] {
       width: 100%;
@@ -440,6 +463,26 @@
       </div>
 
       <div class="field">
+        <label for="sel-region">Región (opcional)</label>
+        <select id="sel-region">
+          <option value="">— Todas las regiones —</option>
+          <option>Arica y Parinacota</option>
+          <option>Tarapacá</option>
+          <option>Antofagasta</option>
+          <option>Atacama</option>
+          <option>Coquimbo</option>
+          <option>Metropolitana</option>
+          <option>O'Higgins</option>
+          <option>Maule</option>
+          <option>Ñuble</option>
+          <option>Biobío</option>
+          <option>La Araucanía</option>
+          <option>Los Ríos</option>
+          <option>Los Lagos</option>
+        </select>
+      </div>
+
+      <div class="field">
         <label>Comuna a asignar <span class="req">*</span></label>
         <div class="dropdown-wrap" id="dd-wrap">
           <button type="button" class="dropdown-trigger placeholder" id="dd-trigger" aria-haspopup="listbox" aria-expanded="false">
@@ -497,9 +540,27 @@
     const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwYcT7x6IGBaertfnPlNK_q1VZoQEKl9WYGuL6d5V9TWNrKunses4oPNKOpcpxW0k_SpQ/exec';
     const SECRET     = 'BIOGREEN_COMUNAS_2025';
 
+    // ─── MAPA REGIÓN → COMUNAS ───────────────────────────────────────────────
+    const REGION_MAP = {
+      'Arica y Parinacota': ['General Lagos'],
+      'Tarapacá': ['Camiña','Colchane','Huara','Pozo Almonte'],
+      'Antofagasta': ['María Elena','Ollagüe','San Pedro de Atacama','Sierra Gorda','Tocopilla'],
+      'Atacama': ['Alto del Carmen','Chañaral','Diego de Almagro','Freirina','Huasco','Tierra Amarilla'],
+      'Coquimbo': ['Canela','Combarbalá','Illapel','La Higuera','Monte Patria','Paihuano','Punitaqui','Río Hurtado','Salamanca','Vicuña'],
+      'Metropolitana': ['Alhué','Buin','Calera de Tango','Cerrillos','Cerro Navia','Conchalí','Curacaví','El Bosque','El Monte','Estación Central','Isla de Maipo','La Cisterna','La Granja','La Pintana','Lo Barnechea','Lo Espejo','Lo Prado','María Pinto','Melipilla','Padre Hurtado','Pedro Aguirre Cerda','Peñaflor','Pirque','Quilicura','Quinta Normal','Recoleta','Renca','San Joaquín','San José de Maipo','San Ramón','Talagante','Vitacura'],
+      'O\'Higgins': ['Chépica','Codegua','Coinco','Doñihue','La Estrella','Las Cabras','Litueche','Lolol','Malloa','Marchihue','Nancagua','Navidad','Olivar','Palmilla','Paredones','Peralillo','Peumo','Pichidegua','Placilla','Pumanque','Quinta de Tilcoco'],
+      'Maule': ['Chanco','Constitución','Curepto','Empedrado','Hualañé','Licantén','Longaví','Maule','Molina','Pelarco','Pelluhue','Rauco','Retiro','Río Claro','Sagrada Familia','San Clemente','San Javier','San Rafael','Teno','Vichuquén','Villa Alegre','Yerbas Buenas'],
+      'Ñuble': ['Bulnes','Chillán Viejo','Cobquecura','Coelemu','Coihueco','El Carmen','Ninhue','Ñiquén','Pemuco','Pinto','Portezuelo','Quillón','Quirihue','Ránquil','San Fabián','San Ignacio','San Nicolás','Treguaco','Yungay'],
+      'Biobío': ['Alto Biobío','Antuco','Cabrero','Cañete','Contulmo','Coronel','Curanilahue','Florida','Hualpén','Laja','Los Álamos','Mulchén','Negrete','Penco','Quilaco','Quilleco','San Pedro','San Rosendo','Santa Bárbara','Tirúa','Tucapel'],
+      'La Araucanía': ['Carahue','Cholchol','Collipulli','Cunco','Curacautín','Curarrehue','Ercilla','Freire','Galvarino','Gorbea','Loncoche','Lonquimay','Los Sauces','Lumaco','Melipeuco','Nueva Imperial','Padre Las Casas','Perquenco','Pitrufquén','Purén','Renaico','Saavedra','Toltén','Traiguén','Victoria','Vilcún'],
+      'Los Ríos': ['Corral','Futrono','La Unión','Lago Ranco','Río Bueno'],
+      'Los Lagos': ['Calbuco','Chaitén','Cochamó','Fresia','Frutillar','Hualaihué','Llanquihue','Los Muermos','Maullín','Palena','Puerto Octay','Purranque','Puyehue','Río Negro','San Juan de la Costa','San Pablo'],
+    };
+
     // ─── ESTADO ──────────────────────────────────────────────────────────────
     let comunasDisponibles = [];
     let comunaSeleccionada = null;
+    let regionFiltro = '';
 
     // ─── ELEMENTOS ───────────────────────────────────────────────────────────
     const stateLoading = document.getElementById('state-loading');
@@ -513,6 +574,7 @@
     const btnSubmit  = document.getElementById('btn-submit');
     const errorBanner= document.getElementById('error-banner');
 
+    const selRegion  = document.getElementById('sel-region');
     const ddTrigger  = document.getElementById('dd-trigger');
     const ddPanel    = document.getElementById('dd-panel');
     const ddSearch   = document.getElementById('dd-search');
@@ -536,12 +598,36 @@
         } else {
           stateForm.style.display = 'block';
           badgeCount.textContent = `${comunasDisponibles.length} comunas disponibles`;
-          renderizarOpciones(comunasDisponibles);
+          renderizarOpciones(comunasFiltradas());
         }
       } catch (err) {
         stateLoading.innerHTML = '<p style="color:#c62828;">Error al cargar comunas. Recarga la página.</p>';
       }
     }
+
+    // ─── FILTRO REGIÓN ───────────────────────────────────────────────────────
+    function comunasFiltradas() {
+      if (!regionFiltro) return comunasDisponibles;
+      const set = new Set(REGION_MAP[regionFiltro] || []);
+      return comunasDisponibles.filter(c => set.has(c));
+    }
+
+    selRegion.addEventListener('change', () => {
+      regionFiltro = selRegion.value;
+      // Si la comuna seleccionada no pertenece a la nueva región, resetear
+      if (comunaSeleccionada && regionFiltro) {
+        const set = new Set(REGION_MAP[regionFiltro] || []);
+        if (!set.has(comunaSeleccionada)) {
+          comunaSeleccionada = null;
+          ddTrigger.textContent = 'Busca y selecciona tu comuna…';
+          ddTrigger.classList.add('placeholder');
+        }
+      }
+      const filtradas = comunasFiltradas();
+      badgeCount.textContent = `${filtradas.length} comunas disponibles`;
+      renderizarOpciones(filtradas);
+      ddSearch.value = '';
+    });
 
     // ─── DROPDOWN ────────────────────────────────────────────────────────────
     function renderizarOpciones(lista) {
@@ -748,8 +834,9 @@
         const res  = await fetch(`${WEBAPP_URL}?action=getComunas`);
         const data = await res.json();
         comunasDisponibles = data.comunas || [];
-        badgeCount.textContent = `${comunasDisponibles.length} comunas disponibles`;
-        renderizarOpciones(comunasDisponibles);
+        const filtradas = comunasFiltradas();
+        badgeCount.textContent = `${filtradas.length} comunas disponibles`;
+        renderizarOpciones(filtradas);
       } catch (_) {}
     }
 
