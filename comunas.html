@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Asignación de Comunas — Biogreen Chile</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      background: linear-gradient(145deg, #f0f7f0 0%, #e8f5e9 50%, #f1f8e9 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 0 0 48px;
+    }
+
+    /* ── Header ── */
+    .header {
+      width: 100%;
+      background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 55%, #388E3C 100%);
+      padding: 28px 24px 32px;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(27,94,32,0.35);
+    }
+    .header-logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .header-leaf {
+      width: 42px;
+      height: 42px;
+    }
+    .header h1 {
+      color: #fff;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+    .header p {
+      color: rgba(255,255,255,0.85);
+      font-size: 14px;
+      margin-top: 6px;
+      max-width: 480px;
+      margin-left: auto;
+      margin-right: auto;
+      line-height: 1.5;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.06);
+      width: 100%;
+      max-width: 520px;
+      margin: -16px auto 0;
+      padding: 36px 32px 40px;
+      position: relative;
+    }
+
+    /* ── Loading ── */
+    #state-loading {
+      text-align: center;
+      padding: 48px 0;
+    }
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 4px solid #e8f5e9;
+      border-top-color: #2E7D32;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #state-loading p { color: #666; font-size: 14px; }
+
+    /* ── Agotado ── */
+    #state-agotado {
+      text-align: center;
+      padding: 48px 0;
+      display: none;
+    }
+    .agotado-icon {
+      font-size: 52px;
+      margin-bottom: 16px;
+    }
+    #state-agotado h2 { color: #2E7D32; font-size: 20px; margin-bottom: 10px; }
+    #state-agotado p { color: #555; font-size: 14px; line-height: 1.6; }
+
+    /* ── Form ── */
+    #state-form { display: none; }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1B5E20;
+      margin-bottom: 24px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid #e8f5e9;
+    }
+
+    .field {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #37474f;
+      margin-bottom: 6px;
+      letter-spacing: 0.2px;
+    }
+    label span.req { color: #2E7D32; }
+
+    input[type="text"],
+    input[type="email"] {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1.5px solid #ddd;
+      border-radius: 8px;
+      font-size: 15px;
+      color: #1a1a1a;
+      background: #fafafa;
+      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+      outline: none;
+    }
+    input[type="text"]:focus,
+    input[type="email"]:focus {
+      border-color: #2E7D32;
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(46,125,50,0.12);
+    }
+    input.error { border-color: #c62828; }
+    .field-error {
+      font-size: 12px;
+      color: #c62828;
+      margin-top: 4px;
+      display: none;
+    }
+
+    /* ── Custom searchable dropdown ── */
+    .dropdown-wrap { position: relative; }
+    .dropdown-trigger {
+      width: 100%;
+      padding: 12px 36px 12px 14px;
+      border: 1.5px solid #ddd;
+      border-radius: 8px;
+      font-size: 15px;
+      color: #1a1a1a;
+      background: #fafafa url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%232E7D32' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14L2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E") no-repeat right 12px center;
+      cursor: pointer;
+      text-align: left;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+      user-select: none;
+    }
+    .dropdown-trigger:focus,
+    .dropdown-trigger.open {
+      border-color: #2E7D32;
+      background-color: #fff;
+      box-shadow: 0 0 0 3px rgba(46,125,50,0.12);
+    }
+    .dropdown-trigger.error { border-color: #c62828; }
+    .dropdown-trigger.placeholder { color: #999; }
+
+    .dropdown-panel {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0; right: 0;
+      background: #fff;
+      border: 1.5px solid #2E7D32;
+      border-radius: 10px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.14);
+      z-index: 100;
+      display: none;
+      overflow: hidden;
+    }
+    .dropdown-panel.open { display: block; }
+
+    .dropdown-search-wrap {
+      padding: 10px 10px 8px;
+      border-bottom: 1px solid #e8f5e9;
+    }
+    .dropdown-search {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1.5px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .dropdown-search:focus { border-color: #2E7D32; }
+
+    .dropdown-list {
+      max-height: 240px;
+      overflow-y: auto;
+      padding: 4px 0;
+      scrollbar-width: thin;
+      scrollbar-color: #a5d6a7 transparent;
+    }
+    .dropdown-list::-webkit-scrollbar { width: 6px; }
+    .dropdown-list::-webkit-scrollbar-thumb { background: #a5d6a7; border-radius: 3px; }
+
+    .dropdown-option {
+      padding: 10px 16px;
+      font-size: 14px;
+      color: #1a1a1a;
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+    .dropdown-option:hover { background: #f1f8e9; color: #1B5E20; }
+    .dropdown-option.selected { background: #e8f5e9; color: #1B5E20; font-weight: 600; }
+    .dropdown-option.hidden { display: none; }
+    .dropdown-empty {
+      padding: 14px 16px;
+      font-size: 13px;
+      color: #999;
+      text-align: center;
+      display: none;
+    }
+
+    .disponibles-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #e8f5e9;
+      color: #2E7D32;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+      margin-bottom: 20px;
+    }
+    .badge-dot {
+      width: 7px;
+      height: 7px;
+      background: #2E7D32;
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    /* ── Submit button ── */
+    .btn-submit {
+      width: 100%;
+      padding: 15px;
+      background: linear-gradient(135deg, #2E7D32, #1B5E20);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 4px 14px rgba(46,125,50,0.35);
+      margin-top: 8px;
+    }
+    .btn-submit:hover:not(:disabled) {
+      opacity: 0.92;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(46,125,50,0.4);
+    }
+    .btn-submit:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* ── Success ── */
+    #state-success {
+      text-align: center;
+      padding: 24px 0 16px;
+      display: none;
+    }
+    .success-icon-wrap {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, #2E7D32, #1B5E20);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 22px;
+      box-shadow: 0 6px 20px rgba(46,125,50,0.35);
+    }
+    .success-icon-wrap svg { width: 38px; height: 38px; }
+    #state-success h2 { color: #1B5E20; font-size: 22px; margin-bottom: 10px; }
+    #state-success .comuna-asignada {
+      display: inline-block;
+      background: linear-gradient(135deg, #2E7D32, #1B5E20);
+      color: #fff;
+      font-size: 20px;
+      font-weight: 700;
+      padding: 12px 28px;
+      border-radius: 10px;
+      margin: 14px 0 18px;
+      box-shadow: 0 4px 14px rgba(46,125,50,0.3);
+    }
+    #state-success p { color: #555; font-size: 14px; line-height: 1.6; }
+    .success-detail {
+      background: #f1f8e9;
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-top: 20px;
+      text-align: left;
+    }
+    .success-detail p { font-size: 13px; color: #37474f; margin-bottom: 4px; }
+    .success-detail p:last-child { margin-bottom: 0; }
+    .success-detail strong { color: #1B5E20; }
+
+    /* ── Error banner ── */
+    .error-banner {
+      background: #fdecea;
+      border: 1.5px solid #ef9a9a;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: #c62828;
+      margin-bottom: 20px;
+      display: none;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      margin-top: 28px;
+      text-align: center;
+      color: #aaa;
+      font-size: 12px;
+    }
+
+    @media (max-width: 560px) {
+      .card { margin: -16px 12px 0; padding: 28px 20px 32px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-logo">
+      <svg class="header-leaf" viewBox="0 0 42 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="21" cy="21" r="21" fill="rgba(255,255,255,0.15)"/>
+        <path d="M21 8C21 8 10 14 10 24C10 29.523 15 34 21 34C27 34 32 29.523 32 24C32 14 21 8 21 8Z" fill="rgba(255,255,255,0.9)"/>
+        <path d="M21 34L21 20" stroke="#2E7D32" stroke-width="2" stroke-linecap="round"/>
+        <path d="M21 26L16 22" stroke="#2E7D32" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M21 23L25 19" stroke="#2E7D32" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <h1>Biogreen Chile</h1>
+    </div>
+    <p>Asignación de comunas para distribuidoras. Cada comuna se asigna a una sola persona — elige con criterio.</p>
+  </div>
+
+  <!-- Card -->
+  <div class="card">
+
+    <!-- Loading -->
+    <div id="state-loading">
+      <div class="spinner"></div>
+      <p>Cargando comunas disponibles…</p>
+    </div>
+
+    <!-- Agotado -->
+    <div id="state-agotado">
+      <div class="agotado-icon">🏁</div>
+      <h2>Todas las comunas han sido asignadas</h2>
+      <p>El proceso de asignación ha concluido. Si tienes dudas, contáctanos a <a href="mailto:ivan.lara@biogreenchile.com" style="color:#2E7D32;">ivan.lara@biogreenchile.com</a></p>
+    </div>
+
+    <!-- Form -->
+    <div id="state-form">
+      <p class="section-title">Completa tus datos para asignarte una comuna</p>
+
+      <div class="disponibles-badge">
+        <span class="badge-dot"></span>
+        <span id="contador-badge">— comunas disponibles</span>
+      </div>
+
+      <div class="error-banner" id="error-banner"></div>
+
+      <div class="field">
+        <label for="inp-nombre">Nombre completo <span class="req">*</span></label>
+        <input type="text" id="inp-nombre" placeholder="Ej: María González Pérez" autocomplete="name">
+        <div class="field-error" id="err-nombre">Ingresa tu nombre completo.</div>
+      </div>
+
+      <div class="field">
+        <label for="inp-rut">RUT <span class="req">*</span></label>
+        <input type="text" id="inp-rut" placeholder="Ej: 12.345.678-9" maxlength="12" autocomplete="off">
+        <div class="field-error" id="err-rut">RUT inválido. Formato: 12.345.678-9</div>
+      </div>
+
+      <div class="field">
+        <label for="inp-correo">Correo electrónico <span class="req">*</span></label>
+        <input type="email" id="inp-correo" placeholder="Ej: maria@ejemplo.cl" autocomplete="email">
+        <div class="field-error" id="err-correo">Ingresa un correo válido.</div>
+      </div>
+
+      <div class="field">
+        <label>Comuna a asignar <span class="req">*</span></label>
+        <div class="dropdown-wrap" id="dd-wrap">
+          <button type="button" class="dropdown-trigger placeholder" id="dd-trigger" aria-haspopup="listbox" aria-expanded="false">
+            Busca y selecciona tu comuna…
+          </button>
+          <div class="dropdown-panel" id="dd-panel" role="listbox">
+            <div class="dropdown-search-wrap">
+              <input type="text" class="dropdown-search" id="dd-search" placeholder="Escribe para filtrar…" autocomplete="off">
+            </div>
+            <div class="dropdown-list" id="dd-list"></div>
+            <div class="dropdown-empty" id="dd-empty">Sin resultados para tu búsqueda.</div>
+          </div>
+        </div>
+        <div class="field-error" id="err-comuna">Selecciona una comuna.</div>
+      </div>
+
+      <button class="btn-submit" id="btn-submit" type="button">
+        Confirmar asignación →
+      </button>
+    </div>
+
+    <!-- Success -->
+    <div id="state-success">
+      <div class="success-icon-wrap">
+        <svg viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M8 19L16 27L30 11" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h2>¡Comuna asignada!</h2>
+      <p>Tu solicitud fue registrada exitosamente.</p>
+      <div class="comuna-asignada" id="nombre-comuna-success">—</div>
+      <p>Queda registrada bajo tu nombre y RUT. Ante cualquier duda contáctate con tu coordinadora.</p>
+      <div class="success-detail" id="success-detail"></div>
+    </div>
+
+  </div>
+
+  <div class="footer">Biogreen Chile · Proceso de asignación de comunas</div>
+
+  <script>
+    // ─── CONFIGURACIÓN ───────────────────────────────────────────────────────
+    const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwYcT7x6IGBaertfnPlNK_q1VZoQEKl9WYGuL6d5V9TWNrKunses4oPNKOpcpxW0k_SpQ/exec';
+    const SECRET     = 'BIOGREEN_COMUNAS_2025';
+
+    // ─── ESTADO ──────────────────────────────────────────────────────────────
+    let comunasDisponibles = [];
+    let comunaSeleccionada = null;
+
+    // ─── ELEMENTOS ───────────────────────────────────────────────────────────
+    const stateLoading = document.getElementById('state-loading');
+    const stateAgotado = document.getElementById('state-agotado');
+    const stateForm    = document.getElementById('state-form');
+    const stateSuccess = document.getElementById('state-success');
+
+    const inpNombre  = document.getElementById('inp-nombre');
+    const inpRut     = document.getElementById('inp-rut');
+    const inpCorreo  = document.getElementById('inp-correo');
+    const btnSubmit  = document.getElementById('btn-submit');
+    const errorBanner= document.getElementById('error-banner');
+
+    const ddTrigger  = document.getElementById('dd-trigger');
+    const ddPanel    = document.getElementById('dd-panel');
+    const ddSearch   = document.getElementById('dd-search');
+    const ddList     = document.getElementById('dd-list');
+    const ddEmpty    = document.getElementById('dd-empty');
+    const badgeCount = document.getElementById('contador-badge');
+
+    // ─── INIT ────────────────────────────────────────────────────────────────
+    cargarComunas();
+
+    async function cargarComunas() {
+      try {
+        const res  = await fetch(`${WEBAPP_URL}?action=getComunas`);
+        const data = await res.json();
+        comunasDisponibles = data.comunas || [];
+
+        stateLoading.style.display = 'none';
+
+        if (comunasDisponibles.length === 0) {
+          stateAgotado.style.display = 'block';
+        } else {
+          stateForm.style.display = 'block';
+          badgeCount.textContent = `${comunasDisponibles.length} comunas disponibles`;
+          renderizarOpciones(comunasDisponibles);
+        }
+      } catch (err) {
+        stateLoading.innerHTML = '<p style="color:#c62828;">Error al cargar comunas. Recarga la página.</p>';
+      }
+    }
+
+    // ─── DROPDOWN ────────────────────────────────────────────────────────────
+    function renderizarOpciones(lista) {
+      ddList.innerHTML = '';
+      lista.forEach(c => {
+        const opt = document.createElement('div');
+        opt.className = 'dropdown-option';
+        opt.textContent = c;
+        opt.dataset.value = c;
+        opt.setAttribute('role', 'option');
+        opt.addEventListener('click', () => seleccionarComuna(c));
+        ddList.appendChild(opt);
+      });
+    }
+
+    ddTrigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = ddPanel.classList.toggle('open');
+      ddTrigger.setAttribute('aria-expanded', open);
+      ddTrigger.classList.toggle('open', open);
+      if (open) { ddSearch.value = ''; filtrarOpciones(''); ddSearch.focus(); }
+    });
+
+    ddSearch.addEventListener('input', () => filtrarOpciones(ddSearch.value));
+
+    function filtrarOpciones(q) {
+      const norm = q.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+      let visible = 0;
+      ddList.querySelectorAll('.dropdown-option').forEach(opt => {
+        const texto = opt.textContent.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+        const match = texto.includes(norm);
+        opt.classList.toggle('hidden', !match);
+        if (match) visible++;
+      });
+      ddEmpty.style.display = visible === 0 ? 'block' : 'none';
+    }
+
+    function seleccionarComuna(c) {
+      comunaSeleccionada = c;
+      ddTrigger.textContent = c;
+      ddTrigger.classList.remove('placeholder', 'error');
+      ddList.querySelectorAll('.dropdown-option').forEach(opt => {
+        opt.classList.toggle('selected', opt.dataset.value === c);
+      });
+      cerrarDropdown();
+      document.getElementById('err-comuna').style.display = 'none';
+    }
+
+    function cerrarDropdown() {
+      ddPanel.classList.remove('open');
+      ddTrigger.classList.remove('open');
+      ddTrigger.setAttribute('aria-expanded', 'false');
+    }
+
+    document.addEventListener('click', (e) => {
+      if (!document.getElementById('dd-wrap').contains(e.target)) cerrarDropdown();
+    });
+
+    // ─── RUT ─────────────────────────────────────────────────────────────────
+    inpRut.addEventListener('input', () => {
+      let v = inpRut.value.replace(/[^0-9kK]/g, '').toUpperCase();
+      if (v.length > 9) v = v.slice(0, 9);
+      if (v.length > 1) {
+        const cuerpo = v.slice(0, -1).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        inpRut.value = cuerpo + '-' + v.slice(-1);
+      } else {
+        inpRut.value = v;
+      }
+    });
+
+    function validarRUT(rut) {
+      const limpio = rut.replace(/\./g, '').replace(/-/g, '').toUpperCase();
+      if (!/^\d{7,8}[0-9K]$/.test(limpio)) return false;
+      const cuerpo = limpio.slice(0, -1);
+      const dv = limpio.slice(-1);
+      let suma = 0, mult = 2;
+      for (let i = cuerpo.length - 1; i >= 0; i--) {
+        suma += parseInt(cuerpo[i]) * mult;
+        mult = mult === 7 ? 2 : mult + 1;
+      }
+      const dvEsp = 11 - (suma % 11);
+      const dvStr = dvEsp === 11 ? '0' : dvEsp === 10 ? 'K' : String(dvEsp);
+      return dv === dvStr;
+    }
+
+    // ─── VALIDACIÓN ──────────────────────────────────────────────────────────
+    function mostrarError(campo, msg) {
+      const err = document.getElementById('err-' + campo);
+      const inp = document.getElementById('inp-' + campo) || (campo === 'comuna' ? ddTrigger : null);
+      if (err) { err.textContent = msg; err.style.display = 'block'; }
+      if (inp) inp.classList.add('error');
+    }
+    function limpiarError(campo) {
+      const err = document.getElementById('err-' + campo);
+      const inp = document.getElementById('inp-' + campo);
+      if (err) err.style.display = 'none';
+      if (inp) inp.classList.remove('error');
+    }
+
+    [inpNombre, inpRut, inpCorreo].forEach(el => {
+      const campo = el.id.replace('inp-', '');
+      el.addEventListener('input', () => limpiarError(campo));
+    });
+
+    function validarFormulario() {
+      let ok = true;
+      if (!inpNombre.value.trim() || inpNombre.value.trim().length < 3) {
+        mostrarError('nombre', 'Ingresa tu nombre completo.'); ok = false;
+      } else limpiarError('nombre');
+
+      if (!validarRUT(inpRut.value)) {
+        mostrarError('rut', 'RUT inválido. Formato: 12.345.678-9'); ok = false;
+      } else limpiarError('rut');
+
+      const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRe.test(inpCorreo.value.trim())) {
+        mostrarError('correo', 'Ingresa un correo electrónico válido.'); ok = false;
+      } else limpiarError('correo');
+
+      if (!comunaSeleccionada) {
+        document.getElementById('err-comuna').style.display = 'block';
+        ddTrigger.classList.add('error');
+        ok = false;
+      }
+      return ok;
+    }
+
+    // ─── SUBMIT ──────────────────────────────────────────────────────────────
+    btnSubmit.addEventListener('click', async () => {
+      errorBanner.style.display = 'none';
+      if (!validarFormulario()) return;
+
+      btnSubmit.disabled = true;
+      btnSubmit.textContent = 'Registrando…';
+
+      const params = new URLSearchParams({
+        action:  'submit',
+        secret:  SECRET,
+        nombre:  inpNombre.value.trim(),
+        rut:     inpRut.value.trim(),
+        correo:  inpCorreo.value.trim().toLowerCase(),
+        comuna:  comunaSeleccionada
+      });
+
+      try {
+        const res  = await fetch(`${WEBAPP_URL}?${params.toString()}`);
+        const data = await res.json();
+
+        if (data.status === 'ok') {
+          stateForm.style.display = 'none';
+          stateSuccess.style.display = 'block';
+          document.getElementById('nombre-comuna-success').textContent = comunaSeleccionada;
+          document.getElementById('success-detail').innerHTML = `
+            <p><strong>Nombre:</strong> ${escapeHtml(inpNombre.value.trim())}</p>
+            <p><strong>RUT:</strong> ${escapeHtml(inpRut.value.trim())}</p>
+            <p><strong>Correo:</strong> ${escapeHtml(inpCorreo.value.trim())}</p>
+          `;
+        } else {
+          errorBanner.textContent = data.message || 'Error al registrar. Intenta nuevamente.';
+          errorBanner.style.display = 'block';
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          btnSubmit.disabled = false;
+          btnSubmit.textContent = 'Confirmar asignación →';
+
+          // Si la comuna ya fue tomada, recargar opciones
+          if (data.message && data.message.includes('ya fue asignada')) {
+            comunaSeleccionada = null;
+            ddTrigger.textContent = 'Busca y selecciona tu comuna…';
+            ddTrigger.classList.add('placeholder');
+            await cargarComunasActualizadas();
+          }
+        }
+      } catch (err) {
+        errorBanner.textContent = 'Error de conexión. Verifica tu internet e intenta nuevamente.';
+        errorBanner.style.display = 'block';
+        btnSubmit.disabled = false;
+        btnSubmit.textContent = 'Confirmar asignación →';
+      }
+    });
+
+    async function cargarComunasActualizadas() {
+      try {
+        const res  = await fetch(`${WEBAPP_URL}?action=getComunas`);
+        const data = await res.json();
+        comunasDisponibles = data.comunas || [];
+        badgeCount.textContent = `${comunasDisponibles.length} comunas disponibles`;
+        renderizarOpciones(comunasDisponibles);
+      } catch (_) {}
+    }
+
+    function escapeHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+  </script>
+</body>
+</html>
