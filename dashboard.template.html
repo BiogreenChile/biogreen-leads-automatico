@@ -683,6 +683,7 @@ const ENC_PAYLOAD = "__ENC_PAYLOAD__";
 let META_DATA = { actualizado: "—" };
 let DATA = [];
 let ZONAS = {};
+let ACTIVAS = new Set();
 </script>
 
 <!-- ══════════ APP ══════════ -->
@@ -729,7 +730,7 @@ async function doUnlock(savedPw) {
       keyMat, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
     const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64buf(payload.iv) }, key, b64buf(payload.ct));
     const obj = JSON.parse(new TextDecoder().decode(pt));
-    META_DATA = obj.meta; DATA = obj.data; ZONAS = obj.zonas || {};
+    META_DATA = obj.meta; DATA = obj.data; ZONAS = obj.zonas || {}; ACTIVAS = new Set(obj.activas || []);
     sessionStorage.setItem("bg_dash_key", pw);
     document.getElementById("lock-overlay").style.display = "none";
     document.getElementById("ts-updated").textContent = META_DATA.actualizado;
@@ -765,7 +766,7 @@ function populateFilters() {
   const ciclos = [...new Set(DATA.map(d => d.ciclo_lead).filter(v => v !== "" && v != null))]
     .sort((a, b) => a - b);
   fill("f-ciclo", ciclos.map(String));
-  fill("f-directora", uniqSorted("directora_auto"));
+  fillDirectora(uniqSorted("directora_auto"));
   fill("f-region", uniqSorted("region"));
   fill("f-patrocinador", uniqSorted("patrocinador"));
 }
@@ -779,6 +780,19 @@ function fill(id, opts) {
   const sel = document.getElementById(id);
   while (sel.options.length > 1) sel.remove(1);
   opts.forEach(o => { const opt = document.createElement("option"); opt.value = o; opt.textContent = o; sel.appendChild(opt); });
+}
+
+function fillDirectora(opts) {
+  const sel = document.getElementById("f-directora");
+  while (sel.options.length > 1) sel.remove(1);
+  opts.forEach(name => {
+    const opt = document.createElement("option");
+    opt.value = name;
+    const activa = ACTIVAS.size === 0 || ACTIVAS.has(name);
+    opt.textContent = activa ? name : `⚠ ${name} (inactiva)`;
+    if (!activa) opt.style.color = "#e65100";
+    sel.appendChild(opt);
+  });
 }
 
 function gf(id) { return document.getElementById(id).value; }
@@ -809,6 +823,23 @@ function applyFilters() {
   Object.values(T).forEach(t => { t.page = 1; });
   updateFilterSummary();
   renderAll();
+
+  // Aviso directora inactiva
+  let banner = document.getElementById("banner-inactiva");
+  if (!banner) {
+    banner = document.createElement("div");
+    banner.id = "banner-inactiva";
+    banner.style.cssText = "display:none;background:#fff3e0;border:1.5px solid #fb8c00;border-radius:8px;padding:10px 16px;font-size:13px;color:#e65100;margin:0 0 14px;";
+    const filtersBar = document.querySelector(".filters-bar") || document.querySelector(".filter-row");
+    if (filtersBar) filtersBar.parentNode.insertBefore(banner, filtersBar.nextSibling);
+  }
+  const dir = gf("f-directora");
+  if (dir && ACTIVAS.size > 0 && !ACTIVAS.has(dir)) {
+    banner.innerHTML = `⚠️ <b>${esc(dir)}</b> ya no está en la lista de Distribuidoras activas. Los leads que se muestran son históricos.`;
+    banner.style.display = "block";
+  } else {
+    banner.style.display = "none";
+  }
 }
 
 function resetFilters() {
@@ -1393,7 +1424,11 @@ function populateZonas() {
   const selDir = document.getElementById("sel-zona-dir");
   selDir.innerHTML = '<option value="">Seleccionar directora...</option>';
   Object.keys(ZONAS).sort().forEach(d => {
-    const o = document.createElement("option"); o.value = d; o.textContent = d;
+    const o = document.createElement("option");
+    o.value = d;
+    const activa = ACTIVAS.size === 0 || ACTIVAS.has(d);
+    o.textContent = activa ? d : `⚠ ${d} (inactiva)`;
+    if (!activa) o.style.color = "#e65100";
     selDir.appendChild(o);
   });
 
@@ -1429,12 +1464,17 @@ function renderZonas() {
   const resumen = document.getElementById("zona-resumen");
   if (!dir) { body.innerHTML = ""; resumen.textContent = ""; return; }
 
+  const esActiva = ACTIVAS.size === 0 || ACTIVAS.has(dir);
   const zonaDir = ZONAS[dir] || {};
   const regiones = Object.keys(zonaDir).sort();
   const totalComunas = regiones.reduce((s, r) => s + zonaDir[r].length, 0);
   resumen.textContent = `${regiones.length} región${regiones.length!==1?"es":""} · ${totalComunas} comuna${totalComunas!==1?"s":""}`;
 
-  let html = '<div style="display:grid;gap:14px;">';
+  let html = "";
+  if (!esActiva) {
+    html += `<div style="background:#fff3e0;border:1.5px solid #fb8c00;border-radius:8px;padding:10px 16px;font-size:13px;color:#e65100;margin-bottom:12px;">⚠️ <b>${esc(dir)}</b> ya no está en la lista de Distribuidoras activas.</div>`;
+  }
+  html += '<div style="display:grid;gap:14px;">';
   regiones.forEach(reg => {
     const comunas = zonaDir[reg].sort();
     html += `<div style="border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden;">
