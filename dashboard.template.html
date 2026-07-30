@@ -833,7 +833,6 @@ function applyFilters() {
     const filtersBar = document.querySelector(".filters-bar") || document.querySelector(".filter-row");
     if (filtersBar) filtersBar.parentNode.insertBefore(banner, filtersBar.nextSibling);
   }
-  const dir = gf("f-directora");
   if (dir && ACTIVAS.size > 0 && !ACTIVAS.has(dir)) {
     banner.innerHTML = `⚠️ <b>${esc(dir)}</b> ya no está en la lista de Distribuidoras activas. Los leads que se muestran son históricos.`;
     banner.style.display = "block";
