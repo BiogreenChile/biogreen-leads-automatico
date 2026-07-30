@@ -730,7 +730,8 @@ async function doUnlock(savedPw) {
       keyMat, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
     const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64buf(payload.iv) }, key, b64buf(payload.ct));
     const obj = JSON.parse(new TextDecoder().decode(pt));
-    META_DATA = obj.meta; DATA = obj.data; ZONAS = obj.zonas || {}; ACTIVAS = new Set(obj.activas || []);
+    META_DATA = obj.meta; DATA = obj.data; ZONAS = obj.zonas || {};
+    ACTIVAS = new Set((obj.activas || []).map(n => n.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')));
     sessionStorage.setItem("bg_dash_key", pw);
     document.getElementById("lock-overlay").style.display = "none";
     document.getElementById("ts-updated").textContent = META_DATA.actualizado;
@@ -788,7 +789,8 @@ function fillDirectora(opts) {
   opts.forEach(name => {
     const opt = document.createElement("option");
     opt.value = name;
-    const activa = ACTIVAS.size === 0 || ACTIVAS.has(name);
+    const norm = name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+    const activa = ACTIVAS.size === 0 || ACTIVAS.has(norm);
     opt.textContent = activa ? name : `⚠ ${name} (inactiva)`;
     if (!activa) opt.style.color = "#e65100";
     sel.appendChild(opt);
@@ -833,7 +835,8 @@ function applyFilters() {
     const filtersBar = document.querySelector(".filters-bar") || document.querySelector(".filter-row");
     if (filtersBar) filtersBar.parentNode.insertBefore(banner, filtersBar.nextSibling);
   }
-  if (dir && ACTIVAS.size > 0 && !ACTIVAS.has(dir)) {
+  const dirNorm = dir ? dir.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'') : '';
+  if (dir && ACTIVAS.size > 0 && !ACTIVAS.has(dirNorm)) {
     banner.innerHTML = `⚠️ <b>${esc(dir)}</b> ya no está en la lista de Distribuidoras activas. Los leads que se muestran son históricos.`;
     banner.style.display = "block";
   } else {
@@ -1463,7 +1466,7 @@ function renderZonas() {
   const resumen = document.getElementById("zona-resumen");
   if (!dir) { body.innerHTML = ""; resumen.textContent = ""; return; }
 
-  const esActiva = ACTIVAS.size === 0 || ACTIVAS.has(dir);
+  const esActiva = ACTIVAS.size === 0 || ACTIVAS.has(dir.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''));
   const zonaDir = ZONAS[dir] || {};
   const regiones = Object.keys(zonaDir).sort();
   const totalComunas = regiones.reduce((s, r) => s + zonaDir[r].length, 0);
