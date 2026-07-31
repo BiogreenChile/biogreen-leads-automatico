@@ -1428,7 +1428,8 @@ function populateZonas() {
   Object.keys(ZONAS).sort().forEach(d => {
     const o = document.createElement("option");
     o.value = d;
-    const activa = ACTIVAS.size === 0 || ACTIVAS.has(d);
+    const dNorm = d.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+    const activa = ACTIVAS.size === 0 || ACTIVAS.has(dNorm);
     o.textContent = activa ? d : `⚠ ${d} (inactiva)`;
     if (!activa) o.style.color = "#e65100";
     selDir.appendChild(o);
