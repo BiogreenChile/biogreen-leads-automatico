@@ -1437,7 +1437,7 @@ function populateZonas() {
 
   // Selector por región: construir mapa inverso región → {comuna → [directoras]}
   const selReg = document.getElementById("sel-zona-reg");
-  selReg.innerHTML = '<option value="">Seleccionar región...</option>';
+  selReg.innerHTML = '<option value="">Seleccionar región...</option><option value="__todas__">🌎 Todas las regiones</option>';
   const regs = new Set();
   Object.entries(ZONAS).forEach(([dir, regMap]) => {
     Object.keys(regMap).forEach(r => regs.add(r));
@@ -1500,11 +1500,13 @@ function renderZonasReg() {
   const resumen = document.getElementById("zona-resumen-reg");
   if (!reg) { body.innerHTML = ""; resumen.textContent = ""; return; }
 
+  const todasRegs = reg === "__todas__";
+
   // Mapa: comuna → [directoras]
   const comunaMap = {};
   Object.entries(ZONAS).forEach(([dir, regMap]) => {
-    if (!regMap[reg]) return;
-    regMap[reg].forEach(com => {
+    if (!todasRegs && !regMap[reg]) return;
+    (todasRegs ? Object.values(regMap).flat() : regMap[reg]).forEach(com => {
       if (!comunaMap[com]) comunaMap[com] = [];
       if (!comunaMap[com].includes(dir)) comunaMap[com].push(dir);
     });
