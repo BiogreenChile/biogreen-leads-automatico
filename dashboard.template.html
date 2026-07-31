@@ -644,6 +644,7 @@ tbody tr:hover td{background:var(--sage-100);}
         <div style="display:flex;gap:8px;margin-bottom:18px;">
           <button id="zona-modo-dir" onclick="setZonaModo('dir')" style="padding:7px 16px;border-radius:var(--r-sm);border:1px solid var(--green);background:var(--green);color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Por directora</button>
           <button id="zona-modo-reg" onclick="setZonaModo('reg')" style="padding:7px 16px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font-size:13px;font-weight:600;cursor:pointer;">Por región</button>
+          <button id="zona-modo-cob" onclick="setZonaModo('cob')" style="padding:7px 16px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font-size:13px;font-weight:600;cursor:pointer;">Cobertura</button>
         </div>
 
         <!-- Filtro por directora -->
@@ -668,7 +669,16 @@ tbody tr:hover td{background:var(--sage-100);}
           </div>
         </div>
 
+        <!-- Panel cobertura -->
+        <div id="zona-panel-cob" style="display:none;">
+          <div id="zona-resumen-cob" style="font-size:12px;color:var(--text-muted);margin-bottom:14px;"></div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px;">
+            🟢 = asignada &nbsp;|&nbsp; ⭐ = asignada por Biogreen &nbsp;|&nbsp; ○ = sin asignar
+          </div>
+        </div>
+
         <div id="zonas-body"></div>
+        <div id="zonas-body-cob" style="display:none;"></div>
       </div>
     </div>
   </div>
@@ -1452,13 +1462,61 @@ function setZonaModo(modo) {
   _zonaModo = modo;
   document.getElementById("zona-panel-dir").style.display = modo === "dir" ? "" : "none";
   document.getElementById("zona-panel-reg").style.display = modo === "reg" ? "" : "none";
-  document.getElementById("zona-modo-dir").style.cssText = modo === "dir"
-    ? "padding:7px 16px;border-radius:var(--r-sm);border:1px solid var(--green);background:var(--green);color:#fff;font-size:13px;font-weight:700;cursor:pointer;"
-    : "padding:7px 16px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font-size:13px;font-weight:600;cursor:pointer;";
-  document.getElementById("zona-modo-reg").style.cssText = modo === "reg"
-    ? "padding:7px 16px;border-radius:var(--r-sm);border:1px solid var(--green);background:var(--green);color:#fff;font-size:13px;font-weight:700;cursor:pointer;"
-    : "padding:7px 16px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font-size:13px;font-weight:600;cursor:pointer;";
-  document.getElementById("zonas-body").innerHTML = "";
+  document.getElementById("zona-panel-cob").style.display = modo === "cob" ? "" : "none";
+  document.getElementById("zonas-body").style.display     = modo !== "cob" ? "" : "none";
+  document.getElementById("zonas-body-cob").style.display = modo === "cob" ? "" : "none";
+  const activeCSS  = "padding:7px 16px;border-radius:var(--r-sm);border:1px solid var(--green);background:var(--green);color:#fff;font-size:13px;font-weight:700;cursor:pointer;";
+  const inactiveCSS= "padding:7px 16px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font-size:13px;font-weight:600;cursor:pointer;";
+  document.getElementById("zona-modo-dir").style.cssText = modo === "dir" ? activeCSS : inactiveCSS;
+  document.getElementById("zona-modo-reg").style.cssText = modo === "reg" ? activeCSS : inactiveCSS;
+  document.getElementById("zona-modo-cob").style.cssText = modo === "cob" ? activeCSS : inactiveCSS;
+  if (modo === "cob") renderCobertura();
+  else document.getElementById("zonas-body").innerHTML = "";
+}
+
+function renderCobertura() {
+  const body    = document.getElementById("zonas-body-cob");
+  const resumen = document.getElementById("zona-resumen-cob");
+  const BIOGREEN_NORM = "biogreen te impulsa";
+
+  // Construir mapa: región → comuna → {count, esBiogreen}
+  const regMap = {};
+  Object.entries(ZONAS).forEach(([dir, zonaDir]) => {
+    const esBio = dir.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').includes(BIOGREEN_NORM);
+    Object.entries(zonaDir).forEach(([reg, comunas]) => {
+      if (!regMap[reg]) regMap[reg] = {};
+      comunas.forEach(com => {
+        if (!regMap[reg][com]) regMap[reg][com] = { count: 0, esBiogreen: false };
+        regMap[reg][com].count++;
+        if (esBio) regMap[reg][com].esBiogreen = true;
+      });
+    });
+  });
+
+  const regs = Object.keys(regMap).sort();
+  let totalComunas = 0, totalAsignadas = 0;
+  regs.forEach(r => { const cs = Object.keys(regMap[r]); totalComunas += cs.length; totalAsignadas += cs.filter(c => regMap[r][c].count > 0).length; });
+  resumen.textContent = `${regs.length} regiones · ${totalComunas} comunas asignadas`;
+
+  let html = '<div style="display:grid;gap:16px;">';
+  regs.forEach(reg => {
+    const comunas = Object.keys(regMap[reg]).sort();
+    html += `<div style="border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden;">
+      <div style="background:var(--green-100);padding:10px 14px;font-size:12px;font-weight:700;color:var(--green-900);display:flex;align-items:center;justify-content:space-between;">
+        <span>📍 ${esc(reg)}</span>
+        <span style="font-weight:400;color:var(--text-muted);font-size:11px;">${comunas.length} comunas</span>
+      </div>
+      <div style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:6px;">`;
+    comunas.forEach(com => {
+      const { count, esBiogreen } = regMap[reg][com];
+      const icono = esBiogreen ? '⭐' : '🟢';
+      const badge = count > 1 ? `<span style="font-size:10px;background:var(--green);color:#fff;border-radius:10px;padding:1px 5px;margin-left:3px;">${count}</span>` : '';
+      html += `<span style="background:var(--surface-2);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:12px;color:var(--text);display:inline-flex;align-items:center;gap:3px;">${icono} ${esc(com)}${badge}</span>`;
+    });
+    html += `</div></div>`;
+  });
+  html += '</div>';
+  body.innerHTML = html;
 }
 
 function renderZonas() {
