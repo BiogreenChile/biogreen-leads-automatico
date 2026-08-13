@@ -1558,24 +1558,23 @@ function renderCobertura() {
   const resumen = document.getElementById("zona-resumen-cob");
   const BIOGREEN_NORM = "biogreen te impulsa";
 
-  // Construir mapa: región → comuna → {count, esBiogreen}
+  // Construir mapa: región → comuna → [{ nombre, esBiogreen }]
   const regMap = {};
   Object.entries(ZONAS).forEach(([dir, zonaDir]) => {
     const esBio = dir.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').includes(BIOGREEN_NORM);
     Object.entries(zonaDir).forEach(([reg, comunas]) => {
       if (!regMap[reg]) regMap[reg] = {};
       comunas.forEach(com => {
-        if (!regMap[reg][com]) regMap[reg][com] = { count: 0, esBiogreen: false };
-        regMap[reg][com].count++;
-        if (esBio) regMap[reg][com].esBiogreen = true;
+        if (!regMap[reg][com]) regMap[reg][com] = [];
+        regMap[reg][com].push({ nombre: dir, esBiogreen: esBio });
       });
     });
   });
 
   const regs = Object.keys(regMap).sort();
-  let totalComunas = 0, totalAsignadas = 0;
-  regs.forEach(r => { const cs = Object.keys(regMap[r]); totalComunas += cs.length; totalAsignadas += cs.filter(c => regMap[r][c].count > 0).length; });
-  resumen.textContent = `${regs.length} regiones · ${totalComunas} comunas asignadas`;
+  let totalComunas = 0;
+  regs.forEach(r => totalComunas += Object.keys(regMap[r]).length);
+  resumen.textContent = `${regs.length} regiones · ${totalComunas} comunas`;
 
   let html = '<div style="display:grid;gap:16px;">';
   regs.forEach(reg => {
@@ -1585,12 +1584,24 @@ function renderCobertura() {
         <span>📍 ${esc(reg)}</span>
         <span style="font-weight:400;color:var(--text-muted);font-size:11px;">${comunas.length} comunas</span>
       </div>
-      <div style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:6px;">`;
-    comunas.forEach(com => {
-      const { count, esBiogreen } = regMap[reg][com];
-      const icono = esBiogreen ? '⭐' : '🟢';
-      const badge = count > 1 ? `<span style="font-size:10px;background:var(--green);color:#fff;border-radius:10px;padding:1px 5px;margin-left:3px;">${count}</span>` : '';
-      html += `<span style="background:var(--surface-2);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:12px;color:var(--text);display:inline-flex;align-items:center;gap:3px;">${icono} ${esc(com)}${badge}</span>`;
+      <div style="display:grid;gap:0;">`;
+    comunas.forEach((com, i) => {
+      const dirs = regMap[reg][com];
+      const hayBio = dirs.some(d => d.esBiogreen);
+      const bg = hayBio
+        ? 'background:rgba(99,179,105,0.13);border-left:3px solid var(--green);'
+        : (i % 2 === 0 ? '' : 'background:var(--surface);');
+      const borderTop = i > 0 ? 'border-top:1px solid var(--border);' : '';
+      html += `<div style="${bg}${borderTop}padding:8px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">`;
+      html += `<span style="font-size:12px;font-weight:600;min-width:160px;color:${hayBio ? 'var(--green)' : 'var(--text)'};">${esc(com)}</span>`;
+      html += `<div style="display:flex;flex-wrap:wrap;gap:5px;">`;
+      dirs.forEach(d => {
+        const chipBg = d.esBiogreen
+          ? 'background:var(--green);color:#fff;'
+          : 'background:var(--surface-2);border:1px solid var(--border);color:var(--text-muted);';
+        html += `<span style="${chipBg}border-radius:20px;padding:2px 10px;font-size:11px;">${esc(d.nombre)}</span>`;
+      });
+      html += `</div></div>`;
     });
     html += `</div></div>`;
   });
