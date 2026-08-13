@@ -853,7 +853,10 @@ function populateFilters() {
   const ciclos = [...new Set(DATA.map(d => d.ciclo_lead).filter(v => v !== "" && v != null))]
     .sort((a, b) => a - b);
   fill("f-ciclo", ciclos.map(String));
-  fillDirectora(uniqSorted("directora_auto"));
+  const dirsDeLeads = new Set(uniqSorted("directora_auto"));
+  const dirsDeZonas = Object.keys(ZONAS);
+  dirsDeZonas.forEach(d => dirsDeLeads.add(d));
+  fillDirectora([...dirsDeLeads].sort((a, b) => a.localeCompare(b, "es")));
   fill("f-region", uniqSorted("region"));
   fill("f-patrocinador", uniqSorted("patrocinador"));
 }
