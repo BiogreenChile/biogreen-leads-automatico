@@ -1513,7 +1513,7 @@ let _zonaModo = "dir";
 function populateZonas() {
   // Selector por directora
   const selDir = document.getElementById("sel-zona-dir");
-  selDir.innerHTML = '<option value="">Seleccionar directora...</option>';
+  selDir.innerHTML = '<option value="">Seleccionar directora...</option><option value="__todas__">👥 Todas las directoras</option>';
   Object.keys(ZONAS).sort().forEach(d => {
     const o = document.createElement("option");
     o.value = d;
@@ -1603,6 +1603,42 @@ function renderZonas() {
   const body = document.getElementById("zonas-body");
   const resumen = document.getElementById("zona-resumen");
   if (!dir) { body.innerHTML = ""; resumen.textContent = ""; return; }
+
+  const todasDirs = dir === "__todas__";
+
+  if (todasDirs) {
+    const dirs = Object.keys(ZONAS).sort();
+    let totalC = 0;
+    dirs.forEach(d => Object.values(ZONAS[d]).forEach(cs => totalC += cs.length));
+    resumen.textContent = `${dirs.length} directoras · ${totalC} comunas en total`;
+    let html = '<div style="display:grid;gap:20px;">';
+    dirs.forEach(d => {
+      const dNorm = d.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+      const activa = ACTIVAS.size === 0 || ACTIVAS.has(dNorm);
+      const zonaDir = ZONAS[d] || {};
+      const regiones = Object.keys(zonaDir).sort();
+      const tc = regiones.reduce((s, r) => s + zonaDir[r].length, 0);
+      html += `<div style="border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden;">`;
+      html += `<div style="background:var(--surface-alt,var(--surface));padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">`;
+      html += `<span style="font-weight:700;font-size:13px;">${esc(d)}${activa?'':' <span style="color:#e65100;font-size:11px;font-weight:500;">(inactiva)</span>'}</span>`;
+      html += `<span style="font-size:11px;color:var(--text-muted);">${regiones.length} región${regiones.length!==1?"es":""} · ${tc} comunas</span>`;
+      html += `</div>`;
+      html += '<div style="display:grid;gap:10px;padding:12px 14px;">';
+      regiones.forEach(reg => {
+        const comunas = zonaDir[reg].sort();
+        html += `<div>
+          <div style="font-size:11px;font-weight:700;color:var(--green-900,var(--green));margin-bottom:6px;">📍 ${esc(reg)}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px;">
+            ${comunas.map(c=>`<span style="background:var(--surface-2);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:12px;color:var(--text);">${esc(c)}</span>`).join("")}
+          </div>
+        </div>`;
+      });
+      html += '</div></div>';
+    });
+    html += "</div>";
+    body.innerHTML = html;
+    return;
+  }
 
   const esActiva = ACTIVAS.size === 0 || ACTIVAS.has(dir.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''));
   const zonaDir = ZONAS[dir] || {};
