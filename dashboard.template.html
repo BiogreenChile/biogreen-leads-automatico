@@ -325,6 +325,10 @@ tbody tr:hover td{background:var(--sage-100);}
       <select class="filter-select" id="f-directora" onchange="applyFilters()"><option value="">Todas</option></select>
     </div>
     <div class="filter-group">
+      <span class="filter-lbl">L&iacute;der / Coord.</span>
+      <select class="filter-select" id="f-lider" onchange="applyFilters()"><option value="">Todas</option></select>
+    </div>
+    <div class="filter-group">
       <span class="filter-lbl">Regi&oacute;n</span>
       <select class="filter-select" id="f-region" onchange="applyFilters()"><option value="">Todas</option></select>
     </div>
@@ -854,9 +858,9 @@ function populateFilters() {
     .sort((a, b) => a - b);
   fill("f-ciclo", ciclos.map(String));
   const dirsDeLeads = new Set(uniqSorted("directora_auto"));
-  const dirsDeZonas = Object.keys(ZONAS);
-  dirsDeZonas.forEach(d => dirsDeLeads.add(d));
+  Object.keys(ZONAS).forEach(d => dirsDeLeads.add(d));
   fillDirectora([...dirsDeLeads].sort((a, b) => a.localeCompare(b, "es")));
+  fill("f-lider", LIDERES.map(l => l.nombre).filter(Boolean).sort((a,b) => a.localeCompare(b,"es")));
   fill("f-region", uniqSorted("region"));
   fill("f-patrocinador", uniqSorted("patrocinador"));
 }
@@ -898,16 +902,20 @@ function applyFilters() {
     .forEach(c => { const o = document.createElement("option"); o.value = c; o.textContent = c; cs.appendChild(o); });
   if ([...cs.options].some(o => o.value === prev)) cs.value = prev;
 
-  const ciclo = gf("f-ciclo"), dir = gf("f-directora"), com = gf("f-comuna"),
-        pat = gf("f-patrocinador"), canal = gf("f-canal");
+  const ciclo = gf("f-ciclo"), dir = gf("f-directora"), lider = gf("f-lider"),
+        com = gf("f-comuna"), pat = gf("f-patrocinador"), canal = gf("f-canal");
+
+  // Construir set de correos del líder seleccionado para cruce
+  const liderCorreo = lider ? (LIDERES.find(l => l.nombre === lider) || {}).correo || "" : "";
 
   filtered = DATA.filter(d => {
-    if (ciclo && String(d.ciclo_lead) !== ciclo) return false;
-    if (dir   && d.directora_auto !== dir)       return false;
-    if (reg   && d.region !== reg)               return false;
-    if (com   && d.comuna !== com)               return false;
-    if (pat   && d.patrocinador !== pat)         return false;
-    if (canal && d.canal !== canal)              return false;
+    if (ciclo  && String(d.ciclo_lead) !== ciclo)  return false;
+    if (dir    && d.directora_auto !== dir)         return false;
+    if (lider  && d.directora_auto !== lider && (!liderCorreo || d.directora_email !== liderCorreo)) return false;
+    if (reg    && d.region !== reg)                 return false;
+    if (com    && d.comuna !== com)                 return false;
+    if (pat    && d.patrocinador !== pat)           return false;
+    if (canal  && d.canal !== canal)                return false;
     return true;
   });
 
@@ -934,7 +942,7 @@ function applyFilters() {
 }
 
 function resetFilters() {
-  ["f-ciclo","f-directora","f-region","f-comuna","f-patrocinador","f-canal"]
+  ["f-ciclo","f-directora","f-lider","f-region","f-comuna","f-patrocinador","f-canal"]
     .forEach(id => document.getElementById(id).value = "");
   applyFilters();
 }
@@ -943,6 +951,7 @@ function updateFilterSummary() {
   const parts = [];
   if (gf("f-ciclo"))        parts.push("Ciclo " + gf("f-ciclo"));
   if (gf("f-directora"))    parts.push("Directora: " + gf("f-directora"));
+  if (gf("f-lider"))        parts.push("Líder: " + gf("f-lider"));
   if (gf("f-region"))       parts.push("Región: " + gf("f-region"));
   if (gf("f-comuna"))       parts.push("Comuna: " + gf("f-comuna"));
   if (gf("f-patrocinador")) parts.push("Patrocinador: " + gf("f-patrocinador"));
