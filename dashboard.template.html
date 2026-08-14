@@ -1630,9 +1630,12 @@ function renderCobertura() {
   const BIOGREEN_NORM = "biogreen te impulsa";
 
   // Construir mapa: región → comuna → [{ nombre, esBiogreen, esLider }]
+  const liderNombres = new Set(LIDERES.map(l => l.nombre.trim().toLowerCase()));
   const regMap = {};
   Object.entries(ZONAS).forEach(([dir, zonaDir]) => {
     const esBio = dir.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').includes(BIOGREEN_NORM);
+    // Si es líder, se agrega desde LIDERES con esLider:true; no duplicar aquí
+    if (!esBio && liderNombres.has(dir.trim().toLowerCase())) return;
     Object.entries(zonaDir).forEach(([reg, comunas]) => {
       if (!regMap[reg]) regMap[reg] = {};
       comunas.forEach(com => {
