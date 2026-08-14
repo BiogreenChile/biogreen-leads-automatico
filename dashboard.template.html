@@ -1639,6 +1639,19 @@ function renderCobertura() {
       return lWords.every(w => dirWords.has(w));
     });
   }
+  // Mapa inverso desde Distribuidores: comuna (lower) → región
+  const comToReg = {};
+  Object.entries(ZONAS).forEach(([, zonaDir]) => {
+    Object.entries(zonaDir).forEach(([reg, comunas]) => {
+      comunas.forEach(com => { comToReg[com.trim().toLowerCase()] = reg; });
+    });
+  });
+
+  // Set de comunas cubiertas por líderes (para excluir Biogreen te impulsa en esas comunas)
+  const liderComunas = new Set(
+    LIDERES.filter(l => l.comuna).map(l => l.comuna.trim().toLowerCase())
+  );
+
   const regMap = {};
   Object.entries(ZONAS).forEach(([dir, zonaDir]) => {
     const esBio = dir.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').includes(BIOGREEN_NORM);
@@ -1647,17 +1660,21 @@ function renderCobertura() {
     Object.entries(zonaDir).forEach(([reg, comunas]) => {
       if (!regMap[reg]) regMap[reg] = {};
       comunas.forEach(com => {
+        // Si es Biogreen y hay un líder en esta misma comuna, no mostrar Biogreen aquí
+        if (esBio && liderComunas.has(com.trim().toLowerCase())) return;
         if (!regMap[reg][com]) regMap[reg][com] = [];
         regMap[reg][com].push({ nombre: dir, esBiogreen: esBio, esLider: false });
       });
     });
   });
-  // Agregar líderes y coordinadoras
+  // Agregar líderes usando región de Distribuidores como fuente única
   LIDERES.forEach(l => {
-    if (!l.region || !l.comuna) return;
-    if (!regMap[l.region]) regMap[l.region] = {};
-    if (!regMap[l.region][l.comuna]) regMap[l.region][l.comuna] = [];
-    regMap[l.region][l.comuna].push({ nombre: l.nombre, esBiogreen: false, esLider: true });
+    if (!l.comuna) return;
+    const reg = comToReg[l.comuna.trim().toLowerCase()];
+    if (!reg) return;
+    if (!regMap[reg]) regMap[reg] = {};
+    if (!regMap[reg][l.comuna]) regMap[reg][l.comuna] = [];
+    regMap[reg][l.comuna].push({ nombre: l.nombre, esBiogreen: false, esLider: true });
   });
 
   const regs = Object.keys(regMap).sort();
