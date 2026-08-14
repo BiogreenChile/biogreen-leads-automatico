@@ -1630,12 +1630,20 @@ function renderCobertura() {
   const BIOGREEN_NORM = "biogreen te impulsa";
 
   // Construir mapa: región → comuna → [{ nombre, esBiogreen, esLider }]
-  const liderNombres = new Set(LIDERES.map(l => l.nombre.trim().toLowerCase()));
+  // Dedup: normaliza quitando acentos y compara palabras (cubre nombres con/sin segundo nombre)
+  function normName(s) { return s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
+  function esLiderZona(dirName) {
+    const dirWords = new Set(normName(dirName).split(/\s+/));
+    return LIDERES.some(l => {
+      const lWords = normName(l.nombre).split(/\s+/);
+      return lWords.every(w => dirWords.has(w));
+    });
+  }
   const regMap = {};
   Object.entries(ZONAS).forEach(([dir, zonaDir]) => {
     const esBio = dir.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').includes(BIOGREEN_NORM);
     // Si es líder, se agrega desde LIDERES con esLider:true; no duplicar aquí
-    if (!esBio && liderNombres.has(dir.trim().toLowerCase())) return;
+    if (!esBio && esLiderZona(dir)) return;
     Object.entries(zonaDir).forEach(([reg, comunas]) => {
       if (!regMap[reg]) regMap[reg] = {};
       comunas.forEach(com => {
