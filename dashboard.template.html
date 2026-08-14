@@ -1567,7 +1567,7 @@ function renderCobertura() {
   const resumen = document.getElementById("zona-resumen-cob");
   const BIOGREEN_NORM = "biogreen te impulsa";
 
-  // Construir mapa: región → comuna → [{ nombre, esBiogreen }]
+  // Construir mapa: región → comuna → [{ nombre, esBiogreen, esLider }]
   const regMap = {};
   Object.entries(ZONAS).forEach(([dir, zonaDir]) => {
     const esBio = dir.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').includes(BIOGREEN_NORM);
@@ -1575,9 +1575,16 @@ function renderCobertura() {
       if (!regMap[reg]) regMap[reg] = {};
       comunas.forEach(com => {
         if (!regMap[reg][com]) regMap[reg][com] = [];
-        regMap[reg][com].push({ nombre: dir, esBiogreen: esBio });
+        regMap[reg][com].push({ nombre: dir, esBiogreen: esBio, esLider: false });
       });
     });
+  });
+  // Agregar líderes y coordinadoras
+  LIDERES.forEach(l => {
+    if (!l.region || !l.comuna) return;
+    if (!regMap[l.region]) regMap[l.region] = {};
+    if (!regMap[l.region][l.comuna]) regMap[l.region][l.comuna] = [];
+    regMap[l.region][l.comuna].push({ nombre: l.nombre, esBiogreen: false, esLider: true });
   });
 
   const regs = Object.keys(regMap).sort();
@@ -1596,19 +1603,25 @@ function renderCobertura() {
       <div style="display:grid;gap:0;">`;
     comunas.forEach((com, i) => {
       const dirs = regMap[reg][com];
-      const hayBio = dirs.some(d => d.esBiogreen);
-      const bg = hayBio
-        ? 'background:rgba(99,179,105,0.13);border-left:3px solid var(--green);'
-        : (i % 2 === 0 ? '' : 'background:var(--surface);');
+      const hayDir    = dirs.some(d => !d.esBiogreen && !d.esLider);
+      const hayLider  = dirs.some(d => d.esLider);
+      const hayBio    = dirs.some(d => d.esBiogreen);
+      const rowBg = hayDir
+        ? 'background:rgba(99,179,105,0.12);border-left:3px solid var(--green);'
+        : hayLider
+          ? 'background:rgba(99,120,220,0.09);border-left:3px solid #6378dc;'
+          : (i % 2 === 0 ? '' : 'background:var(--surface);');
       const borderTop = i > 0 ? 'border-top:1px solid var(--border);' : '';
-      html += `<div style="${bg}${borderTop}padding:8px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">`;
-      html += `<span style="font-size:12px;font-weight:600;min-width:160px;color:${hayBio ? 'var(--green)' : 'var(--text)'};">${esc(com)}</span>`;
+      const comColor = hayDir ? 'var(--green)' : hayLider ? '#6378dc' : 'var(--text-muted)';
+      html += `<div style="${rowBg}${borderTop}padding:8px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">`;
+      html += `<span style="font-size:12px;font-weight:600;min-width:160px;color:${comColor};">${esc(com)}</span>`;
       html += `<div style="display:flex;flex-wrap:wrap;gap:5px;">`;
       dirs.forEach(d => {
-        const chipBg = d.esBiogreen
-          ? 'background:var(--green);color:#fff;'
-          : 'background:var(--surface-2);border:1px solid var(--border);color:var(--text-muted);';
-        html += `<span style="${chipBg}border-radius:20px;padding:2px 10px;font-size:11px;">${esc(d.nombre)}</span>`;
+        let chipStyle;
+        if (d.esLider)      chipStyle = 'background:#6378dc;color:#fff;';
+        else if (d.esBiogreen) chipStyle = 'background:var(--surface-2);border:1px solid var(--border);color:var(--text-muted);';
+        else                chipStyle = 'background:var(--green);color:#fff;';
+        html += `<span style="${chipStyle}border-radius:20px;padding:2px 10px;font-size:11px;">${esc(d.nombre)}</span>`;
       });
       html += `</div></div>`;
     });
