@@ -852,6 +852,14 @@ function renderSinRed() {
   body.innerHTML = html;
 }
 
+let _lidSort = { col: "total", asc: false };
+
+function sortLideres(col) {
+  if (_lidSort.col === col) _lidSort.asc = !_lidSort.asc;
+  else { _lidSort.col = col; _lidSort.asc = col !== "total"; }
+  renderLideres();
+}
+
 function renderLideres() {
   const body    = document.getElementById("lideres-body");
   const resumen = document.getElementById("lideres-resumen");
@@ -860,52 +868,98 @@ function renderLideres() {
     resumen.textContent = "";
     return;
   }
-  const total = LIDERES.reduce((s,l) => s + l.total, 0);
-  resumen.textContent = `${LIDERES.length} líderes/coordinadoras · ${total} leads asignados en total`;
+  const totalLeads = LIDERES.reduce((s,l) => s + l.total, 0);
+  const totalReg   = LIDERES.reduce((s,l) => s + l.leads.filter(x => x.registrada === 'Sí').length, 0);
+  const totalAct   = LIDERES.reduce((s,l) => s + l.leads.filter(x => x.activa).length, 0);
+  resumen.textContent = `${LIDERES.length} líderes/coordinadoras · ${totalLeads} leads · ${totalReg} registradas · ${totalAct} activas`;
 
-  let html = '';
-  LIDERES.slice().sort((a,b) => b.total - a.total).forEach(lid => {
-    const regCom = [lid.region, lid.comuna].filter(Boolean).join(' / ') || '—';
-    html += `<div style="margin-bottom:24px;border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden;">`;
-    html += `<div style="padding:12px 16px;background:var(--surface-alt,var(--surface));display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">`;
-    html += `<div>`;
-    html += `<div style="font-weight:700;font-size:14px;">${lid.nombre}</div>`;
-    html += `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${regCom}</div>`;
-    html += `</div>`;
-    html += `<div style="font-size:22px;font-weight:800;color:var(--green);">${lid.total}<span style="font-size:12px;font-weight:500;color:var(--text-muted);margin-left:4px;">leads</span></div>`;
-    html += `</div>`;
+  // Enriquecer con conteos para ordenar
+  const rows = LIDERES.map(l => ({
+    ...l,
+    _reg: l.leads.filter(x => x.registrada === 'Sí').length,
+    _act: l.leads.filter(x => x.activa).length,
+  }));
+
+  const { col, asc } = _lidSort;
+  rows.sort((a, b) => {
+    let va, vb;
+    if (col === "nombre")  { va = a.nombre || ""; vb = b.nombre || ""; return asc ? va.localeCompare(vb,"es") : vb.localeCompare(va,"es"); }
+    if (col === "region")  { va = a.region || ""; vb = b.region || ""; return asc ? va.localeCompare(vb,"es") : vb.localeCompare(va,"es"); }
+    if (col === "comuna")  { va = a.comuna || ""; vb = b.comuna || ""; return asc ? va.localeCompare(vb,"es") : vb.localeCompare(va,"es"); }
+    if (col === "total")   { return asc ? a.total - b.total : b.total - a.total; }
+    if (col === "reg")     { return asc ? a._reg - b._reg : b._reg - a._reg; }
+    if (col === "act")     { return asc ? a._act - b._act : b._act - a._act; }
+    return 0;
+  });
+
+  const thStyle = (c) => {
+    const active = _lidSort.col === c;
+    const arrow = active ? (_lidSort.asc ? " ▲" : " ▼") : " ⇅";
+    return `style="padding:9px 12px;text-align:left;font-weight:700;font-size:11px;color:${active ? 'var(--green)' : 'var(--text-muted)'};border-bottom:2px solid var(--border);cursor:pointer;user-select:none;white-space:nowrap;" onclick="sortLideres('${c}')"`;
+  };
+
+  let html = `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">`;
+  html += `<thead><tr style="background:var(--surface);">`;
+  html += `<th ${thStyle("nombre")}>#&nbsp;&nbsp;Nombre ⇅</th>`;
+  html += `<th ${thStyle("region")}>Región ⇅</th>`;
+  html += `<th ${thStyle("comuna")}>Comuna ⇅</th>`;
+  html += `<th ${thStyle("total")} style="text-align:center;">Leads ⇅</th>`;
+  html += `<th ${thStyle("reg")} style="text-align:center;">Registradas ⇅</th>`;
+  html += `<th ${thStyle("act")} style="text-align:center;">Activas ⇅</th>`;
+  html += `</tr></thead><tbody>`;
+
+  // Fix: rebuild th with correct arrow per column
+  html = html.replace(/⇅<\/th>/g, '</th>');
+  const cols = ["nombre","region","comuna","total","reg","act"];
+  const labels = ["# Nombre","Región","Comuna","Leads","Registradas","Activas"];
+  const aligns = ["left","left","left","center","center","center"];
+  html = `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:var(--surface);">`;
+  cols.forEach((c, i) => {
+    const active = _lidSort.col === c;
+    const arrow = active ? (_lidSort.asc ? "▲" : "▼") : "⇅";
+    html += `<th onclick="sortLideres('${c}')" style="padding:9px 12px;text-align:${aligns[i]};font-weight:700;font-size:11px;color:${active ? 'var(--green)' : 'var(--text-muted)'};border-bottom:2px solid var(--border);cursor:pointer;user-select:none;white-space:nowrap;">${esc(labels[i])} ${arrow}</th>`;
+  });
+  html += `</tr></thead><tbody>`;
+
+  rows.forEach((lid, i) => {
+    const bg = i % 2 === 0 ? '' : 'background:var(--surface);';
+    const regCom = lid.region || '—';
+    const com    = lid.comuna || '—';
+    const pct    = lid.total > 0 ? Math.round(lid._reg / lid.total * 100) : 0;
+    const pctA   = lid.total > 0 ? Math.round(lid._act / lid.total * 100) : 0;
+    html += `<tr style="${bg}cursor:pointer;" onclick="toggleLiderDetalle(${i})" title="Ver detalle leads">`;
+    html += `<td style="padding:8px 12px;border-bottom:1px solid var(--border);font-weight:600;">${i+1}. ${esc(lid.nombre)}</td>`;
+    html += `<td style="padding:8px 12px;border-bottom:1px solid var(--border);color:var(--text-muted);font-size:12px;">${esc(regCom)}</td>`;
+    html += `<td style="padding:8px 12px;border-bottom:1px solid var(--border);color:var(--text-muted);font-size:12px;">${esc(com)}</td>`;
+    html += `<td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:center;font-weight:800;font-size:16px;color:var(--green);">${lid.total}</td>`;
+    html += `<td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:center;">${lid._reg} <span style="font-size:10px;color:var(--text-muted);">(${pct}%)</span></td>`;
+    html += `<td style="padding:8px 12px;border-bottom:1px solid var(--border);text-align:center;">${lid._act} <span style="font-size:10px;color:var(--text-muted);">(${pctA}%)</span></td>`;
+    html += `</tr>`;
+    // Fila expandible con detalle de leads
+    html += `<tr id="lid-det-${i}" style="display:none;"><td colspan="6" style="padding:0;border-bottom:1px solid var(--border);">`;
     if (lid.leads && lid.leads.length) {
-      html += `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">`;
-      html += `<thead><tr style="background:var(--surface);">`;
-      html += `<th style="padding:7px 10px;text-align:left;font-weight:700;color:var(--text-muted);border-bottom:1px solid var(--border);">Nombre</th>`;
-      html += `<th style="padding:7px 10px;text-align:left;font-weight:700;color:var(--text-muted);border-bottom:1px solid var(--border);">Comuna</th>`;
-      html += `<th style="padding:7px 10px;text-align:left;font-weight:700;color:var(--text-muted);border-bottom:1px solid var(--border);">Ciclo Lead</th>`;
-      html += `<th style="padding:7px 10px;text-align:center;font-weight:700;color:var(--text-muted);border-bottom:1px solid var(--border);">Registrada</th>`;
-      html += `<th style="padding:7px 10px;text-align:left;font-weight:700;color:var(--text-muted);border-bottom:1px solid var(--border);">Ciclo Reg.</th>`;
-      html += `<th style="padding:7px 10px;text-align:left;font-weight:700;color:var(--text-muted);border-bottom:1px solid var(--border);">Activa</th>`;
-      html += `<th style="padding:7px 10px;text-align:left;font-weight:700;color:var(--text-muted);border-bottom:1px solid var(--border);">&Uacute;ltima</th>`;
-      html += `</tr></thead><tbody>`;
-      lid.leads.forEach((l, i) => {
-        const bg = i % 2 === 0 ? '' : 'background:var(--surface);';
-        const reg = l.registrada === 'Sí' ? '✅' : '○';
-        const act = l.activa ? `<span style="color:var(--green);font-weight:700;">${l.activa}</span>` : '—';
-        html += `<tr style="${bg}">`;
-        html += `<td style="padding:6px 10px;border-bottom:1px solid var(--border);">${l.nombre || '—'}</td>`;
-        html += `<td style="padding:6px 10px;border-bottom:1px solid var(--border);">${l.comuna || '—'}</td>`;
-        html += `<td style="padding:6px 10px;border-bottom:1px solid var(--border);">${l.ciclo_lead || '—'}</td>`;
-        html += `<td style="padding:6px 10px;border-bottom:1px solid var(--border);text-align:center;">${reg}</td>`;
-        html += `<td style="padding:6px 10px;border-bottom:1px solid var(--border);">${l.ciclo_reg || '—'}</td>`;
-        html += `<td style="padding:6px 10px;border-bottom:1px solid var(--border);">${act}</td>`;
-        html += `<td style="padding:6px 10px;border-bottom:1px solid var(--border);">${l.ultima || '—'}</td>`;
-        html += `</tr>`;
+      html += `<div style="overflow-x:auto;background:var(--surface);"><table style="width:100%;border-collapse:collapse;font-size:11px;">`;
+      html += `<thead><tr><th style="padding:5px 10px;color:var(--text-muted);font-weight:600;border-bottom:1px solid var(--border);">Nombre</th><th style="padding:5px 10px;color:var(--text-muted);font-weight:600;border-bottom:1px solid var(--border);">Comuna</th><th style="padding:5px 10px;color:var(--text-muted);font-weight:600;border-bottom:1px solid var(--border);">Ciclo Lead</th><th style="padding:5px 10px;text-align:center;color:var(--text-muted);font-weight:600;border-bottom:1px solid var(--border);">Reg.</th><th style="padding:5px 10px;color:var(--text-muted);font-weight:600;border-bottom:1px solid var(--border);">Ciclo Reg.</th><th style="padding:5px 10px;color:var(--text-muted);font-weight:600;border-bottom:1px solid var(--border);">Activa</th><th style="padding:5px 10px;color:var(--text-muted);font-weight:600;border-bottom:1px solid var(--border);">Última</th></tr></thead><tbody>`;
+      lid.leads.forEach((l, j) => {
+        const dbg = j % 2 === 0 ? 'background:var(--surface-2);' : '';
+        const rIcon = l.registrada === 'Sí' ? '✅' : '○';
+        const aVal  = l.activa ? `<span style="color:var(--green);font-weight:700;">${esc(l.activa)}</span>` : '—';
+        html += `<tr style="${dbg}"><td style="padding:4px 10px;">${esc(l.nombre||'—')}</td><td style="padding:4px 10px;">${esc(l.comuna||'—')}</td><td style="padding:4px 10px;">${esc(String(l.ciclo_lead||'—'))}</td><td style="padding:4px 10px;text-align:center;">${rIcon}</td><td style="padding:4px 10px;">${esc(String(l.ciclo_reg||'—'))}</td><td style="padding:4px 10px;">${aVal}</td><td style="padding:4px 10px;">${esc(l.ultima||'—')}</td></tr>`;
       });
       html += `</tbody></table></div>`;
     } else {
-      html += `<div style="padding:10px 16px;font-size:12px;color:var(--text-muted);">Sin leads asignados aún.</div>`;
+      html += `<div style="padding:8px 12px;font-size:11px;color:var(--text-muted);">Sin leads asignados.</div>`;
     }
-    html += `</div>`;
+    html += `</td></tr>`;
   });
+
+  html += `</tbody></table></div>`;
   body.innerHTML = html;
+}
+
+function toggleLiderDetalle(i) {
+  const row = document.getElementById("lid-det-" + i);
+  if (row) row.style.display = row.style.display === "none" ? "" : "none";
 }
 
 function toggleTheme() {
