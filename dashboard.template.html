@@ -397,6 +397,17 @@ tbody tr:hover td{background:var(--sage-100);}
         </div>
       </div>
 
+      <div class="chart-grid-3" style="margin-top:12px;">
+        <div class="chart-card" style="grid-column:span 2;">
+          <div class="chart-card-title">¿C&oacute;mo conociste nuestra marca?</div>
+          <canvas id="chart-conociste" height="160"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-title">¿Ha trabajado en venta directa?</div>
+          <canvas id="chart-trabajado" height="160"></canvas>
+        </div>
+      </div>
+
       <div class="sec-title">Directoras</div>
       <div class="table-card">
         <div class="table-card-hd"><span class="table-card-title">Ranking por volumen de leads</span></div>
@@ -1137,6 +1148,8 @@ function drawAllCharts() {
   drawFunnel("chart-funnel-meta", filtered.filter(d => d.canal === "Meta"), "#1877F2", "#5a9ffa");
   drawFunnel("chart-funnel-org",  filtered.filter(d => d.canal === "Orgánico"), "#00833e", "#3f9e69");
   drawFrequency();
+  drawEncuesta("chart-conociste", "como_conociste", ["#00833e","#3f9e69","#6378dc","#f5a623","#e65100","#888"]);
+  drawEncuesta("chart-trabajado", "ha_trabajado",   ["#6378dc","#00833e","#f5a623","#888"]);
 }
 
 function renderKPIs() {
@@ -1618,6 +1631,64 @@ function drawCanal() {
     const txt = `${sl.l} ${Math.round(sl.v/tot*100)}%`;
     ctx.fillText(txt, lx + 11, lgY - 1);
     lx += 11 + ctx.measureText(txt).width + 12;
+  });
+}
+
+/* ── GRÁFICOS DE ENCUESTA ────────────────── */
+function drawEncuesta(canvasId, field, colors) {
+  const s = setupCanvas(canvasId, 160); if (!s) return;
+  const { ctx, cw, ch } = s;
+  const dark = isDark();
+  const textC = dark ? "#7a9a78" : "#767c76";
+  const textS = dark ? "#e2ede0" : "#333";
+
+  // Agrupar y normalizar respuestas
+  const counts = {};
+  filtered.forEach(d => {
+    let v = (d[field] || "Sin respuesta").trim();
+    // Normalizar variantes largas de respuestas comunes
+    if (/distribuidor/i.test(v)) v = "Distribuidor Biogreen";
+    else if (/recomendaci/i.test(v)) v = "Recomendación";
+    else if (/instagram/i.test(v)) v = "Instagram";
+    else if (/google/i.test(v)) v = "Google";
+    else if (/p.gina web/i.test(v) || /pagina web/i.test(v)) v = "Página web";
+    else if (/facebook/i.test(v)) v = "Facebook";
+    else if (/tiktok/i.test(v)) v = "TikTok";
+    else if (/nunca|no.*vend|no.*cat/i.test(v)) v = "No, nunca";
+    else if (/s.*vend|anteriormente/i.test(v)) v = "Sí, anteriormente";
+    counts[v] = (counts[v] || 0) + 1;
+  });
+
+  const tot = filtered.length || 1;
+  const entries = Object.entries(counts).sort((a,b) => b[1]-a[1]);
+  if (!entries.length) return;
+
+  // Barras horizontales
+  ctx.clearRect(0, 0, cw, ch);
+  const barH = Math.min(18, Math.floor((ch - 20) / entries.length) - 4);
+  const labelW = 110, rightPad = 40;
+  const barMaxW = cw - labelW - rightPad;
+  const maxV = entries[0][1];
+
+  entries.forEach(([label, count], i) => {
+    const y = i * (barH + 6) + 4;
+    const bw = Math.max(2, (count / maxV) * barMaxW);
+    const color = colors[i % colors.length];
+
+    // Label
+    ctx.fillStyle = textC; ctx.font = `10px 'Helvetica Neue',Arial`; ctx.textAlign = "right";
+    const shortLabel = label.length > 16 ? label.slice(0,15)+"…" : label;
+    ctx.fillText(shortLabel, labelW - 4, y + barH - 3);
+
+    // Barra
+    ctx.fillStyle = color;
+    rr(ctx, labelW, y, bw, barH, 3);
+    ctx.fill();
+
+    // % valor
+    const pct = Math.round(count / tot * 100);
+    ctx.fillStyle = textS; ctx.font = `700 10px 'Helvetica Neue',Arial`; ctx.textAlign = "left";
+    ctx.fillText(`${pct}%`, labelW + bw + 4, y + barH - 3);
   });
 }
 
