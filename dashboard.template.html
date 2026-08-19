@@ -1636,7 +1636,10 @@ function drawCanal() {
 
 /* ── GRÁFICOS DE ENCUESTA ────────────────── */
 function _normEncuesta(v, field) {
-  v = (v || "Sin respuesta").trim();
+  v = (v || "").trim();
+  if (!v) return "Sin respuesta";
+  // Descartar fechas (d/mm/yyyy o dd/mm/yyyy)
+  if (/^\d{1,2}\/\d{2}\/\d{4}$/.test(v)) return "Sin respuesta";
   if (/distribuidor/i.test(v)) return "Distribuidor Biogreen";
   if (/recomendaci/i.test(v)) return "Recomendación";
   if (/instagram/i.test(v)) return "Instagram";
@@ -1648,7 +1651,7 @@ function _normEncuesta(v, field) {
   if (/whatsapp/i.test(v)) return "WhatsApp";
   if (/evento|feria/i.test(v)) return "Evento / Feria";
   if (/^no\b|nunca|no.*vend|no.*cat/i.test(v)) return "No";
-  if (/^s[ií]\b|s[ií].*vend|anteriormente/i.test(v)) return "Sí";
+  if (/^s[ií]\b|s[ií].*vend|anteriormente|actualmente/i.test(v)) return "Sí";
   return v;
 }
 
