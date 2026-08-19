@@ -1647,63 +1647,76 @@ function _normEncuesta(v, field) {
   if (/marketplace/i.test(v)) return "Marketplace";
   if (/whatsapp/i.test(v)) return "WhatsApp";
   if (/evento|feria/i.test(v)) return "Evento / Feria";
-  if (/nunca|no.*vend|no.*cat/i.test(v)) return "No, nunca";
-  if (/s[ií].*vend|anteriormente/i.test(v)) return "Sí, anteriormente";
+  if (/^no\b|nunca|no.*vend|no.*cat/i.test(v)) return "No";
+  if (/^s[ií]\b|s[ií].*vend|anteriormente/i.test(v)) return "Sí";
   return v;
 }
 
-function _countEncuesta(field) {
+function _countEncuesta(field, excludeSinResp) {
   const counts = {};
   filtered.forEach(d => {
     const v = _normEncuesta(d[field], field);
+    if (excludeSinResp && v === "Sin respuesta") return;
     counts[v] = (counts[v] || 0) + 1;
   });
   return counts;
 }
 
-// Barras horizontales ordenadas de mayor a menor
+// Barras VERTICALES ordenadas de mayor a menor, sin "Sin respuesta"
 function drawEncuesta(canvasId, field, colors) {
-  const s = setupCanvas(canvasId, 160); if (!s) return;
+  const s = setupCanvas(canvasId, 190); if (!s) return;
   const { ctx, cw, ch } = s;
   const dark = isDark();
   const textC = dark ? "#7a9a78" : "#767c76";
   const textS = dark ? "#e2ede0" : "#333";
-  const counts = _countEncuesta(field);
-  const tot = filtered.length || 1;
+  const counts = _countEncuesta(field, true);
+  const respTotal = Object.values(counts).reduce((a,b)=>a+b,0) || 1;
   const entries = Object.entries(counts).sort((a,b) => b[1]-a[1]);
   if (!entries.length) return;
 
   ctx.clearRect(0, 0, cw, ch);
-  const barH = Math.min(18, Math.floor((ch - 20) / entries.length) - 4);
-  const labelW = 110, rightPad = 40;
-  const barMaxW = cw - labelW - rightPad;
+  const topPad = 20, botPad = 36, n = entries.length;
+  const barArea = cw - 12;
+  const barW = Math.min(40, Math.floor(barArea / n) - 6);
+  const gap = Math.floor((barArea - barW * n) / (n + 1));
+  const chartH = ch - topPad - botPad;
   const maxV = entries[0][1];
 
   entries.forEach(([label, count], i) => {
-    const y = i * (barH + 6) + 4;
-    const bw = Math.max(2, (count / maxV) * barMaxW);
+    const bh = Math.max(2, (count / maxV) * chartH);
+    const x = gap + i * (barW + gap) + 6;
+    const y = topPad + chartH - bh;
     const color = colors[i % colors.length];
-    ctx.fillStyle = textC; ctx.font = `10px 'Helvetica Neue',Arial`; ctx.textAlign = "right";
-    const shortLabel = label.length > 16 ? label.slice(0,15)+"…" : label;
-    ctx.fillText(shortLabel, labelW - 4, y + barH - 3);
+
+    // Barra
     ctx.fillStyle = color;
-    rr(ctx, labelW, y, bw, barH, 3);
+    rr(ctx, x, y, barW, bh, 3);
     ctx.fill();
-    const pct = Math.round(count / tot * 100);
-    ctx.fillStyle = textS; ctx.font = `700 10px 'Helvetica Neue',Arial`; ctx.textAlign = "left";
-    ctx.fillText(`${pct}%`, labelW + bw + 4, y + barH - 3);
+
+    // % encima de la barra
+    const pct = Math.round(count / respTotal * 100);
+    ctx.fillStyle = textS; ctx.font = `700 10px 'Helvetica Neue',Arial`; ctx.textAlign = "center";
+    ctx.fillText(`${pct}%`, x + barW / 2, y - 4);
+
+    // Etiqueta debajo (hasta 2 líneas)
+    ctx.fillStyle = textC; ctx.font = `9px 'Helvetica Neue',Arial`; ctx.textAlign = "center";
+    const words = label.split(/[\s\/]/);
+    const line1 = words.slice(0, Math.ceil(words.length/2)).join(" ");
+    const line2 = words.slice(Math.ceil(words.length/2)).join(" ");
+    ctx.fillText(line1, x + barW / 2, topPad + chartH + 12);
+    if (line2) ctx.fillText(line2, x + barW / 2, topPad + chartH + 23);
   });
 }
 
-// Donut con leyenda para campo binario/ternario
+// Donut solo Sí/No (sin "Sin respuesta"), % sobre respondentes
 function drawEncuestaDonut(canvasId, field, colors) {
   const s = setupCanvas(canvasId, 180); if (!s) return;
   const { ctx, cw, ch } = s;
   const dark = isDark();
   const textC = dark ? "#7a9a78" : "#767c76";
   const textS = dark ? "#e2ede0" : "#222";
-  const counts = _countEncuesta(field);
-  const tot = filtered.length || 1;
+  const counts = _countEncuesta(field, true);
+  const respTotal = Object.values(counts).reduce((a,b)=>a+b,0) || 1;
   const entries = Object.entries(counts).sort((a,b) => b[1]-a[1]);
   if (!entries.length) return;
 
@@ -1714,7 +1727,7 @@ function drawEncuestaDonut(canvasId, field, colors) {
 
   let angle = -Math.PI / 2;
   entries.forEach(([label, count], i) => {
-    const slice = (count / tot) * 2 * Math.PI;
+    const slice = (count / respTotal) * 2 * Math.PI;
     ctx.beginPath();
     ctx.moveTo(cx, cy);
     ctx.arc(cx, cy, outer, angle, angle + slice);
@@ -1731,9 +1744,9 @@ function drawEncuestaDonut(canvasId, field, colors) {
   ctx.fill();
 
   // Leyenda
-  const legX = size + 16, legY0 = (ch - entries.length * 22) / 2;
+  const legX = size + 16, legY0 = (ch - entries.length * 24) / 2;
   entries.forEach(([label, count], i) => {
-    const pct = Math.round(count / tot * 100);
+    const pct = Math.round(count / respTotal * 100);
     const y = legY0 + i * 22;
     ctx.fillStyle = colors[i % colors.length];
     rr(ctx, legX, y + 3, 10, 10, 2);
