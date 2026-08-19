@@ -1718,7 +1718,11 @@ function drawEncuestaDonut(canvasId, field, colors) {
   const dark = isDark();
   const textC = dark ? "#7a9a78" : "#767c76";
   const textS = dark ? "#e2ede0" : "#222";
-  const counts = _countEncuesta(field, true);
+  const rawCounts = _countEncuesta(field, true);
+  // Solo conservar Sí y No — descartar fechas u otros valores
+  const counts = {};
+  if (rawCounts["Sí"]) counts["Sí"] = rawCounts["Sí"];
+  if (rawCounts["No"]) counts["No"] = rawCounts["No"];
   const respTotal = Object.values(counts).reduce((a,b)=>a+b,0) || 1;
   const entries = Object.entries(counts).sort((a,b) => b[1]-a[1]);
   if (!entries.length) return;
