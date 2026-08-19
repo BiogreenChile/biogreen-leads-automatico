@@ -1669,7 +1669,10 @@ function drawEncuesta(canvasId, field, colors) {
   const dark = isDark();
   const textC = dark ? "#7a9a78" : "#767c76";
   const textS = dark ? "#e2ede0" : "#333";
-  const counts = _countEncuesta(field, true);
+  const rawCounts = _countEncuesta(field, true);
+  // Excluir respuestas "Sí"/"No" sueltas (son ruido de datos cruzados)
+  ["Sí","No"].forEach(k => delete rawCounts[k]);
+  const counts = rawCounts;
   const respTotal = Object.values(counts).reduce((a,b)=>a+b,0) || 1;
   const entries = Object.entries(counts).sort((a,b) => b[1]-a[1]);
   if (!entries.length) return;
@@ -1721,10 +1724,10 @@ function drawEncuestaDonut(canvasId, field, colors) {
   if (!entries.length) return;
 
   ctx.clearRect(0, 0, cw, ch);
-  const size = Math.min(ch - 4, cw * 0.45);
-  const cx = size / 2 + 4, cy = ch / 2;
-  const outer = size / 2, inner = outer * 0.54;
+  const cx = cw / 2, cy = ch / 2;
+  const outer = Math.min(cx, cy) - 8, inner = outer * 0.54;
 
+  // Dibujar slices y % encima de cada uno
   let angle = -Math.PI / 2;
   entries.forEach(([label, count], i) => {
     const slice = (count / respTotal) * 2 * Math.PI;
@@ -1734,6 +1737,20 @@ function drawEncuestaDonut(canvasId, field, colors) {
     ctx.closePath();
     ctx.fillStyle = colors[i % colors.length];
     ctx.fill();
+
+    // % en el centro del slice (solo si slice > 10%)
+    const pct = Math.round(count / respTotal * 100);
+    if (pct >= 8) {
+      const mid = angle + slice / 2;
+      const r = (outer + inner) / 2;
+      const tx = cx + Math.cos(mid) * r;
+      const ty = cy + Math.sin(mid) * r;
+      ctx.fillStyle = "#fff";
+      ctx.font = `700 12px 'Helvetica Neue',Arial`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(`${pct}%`, tx, ty);
+    }
     angle += slice;
   });
 
@@ -1742,20 +1759,18 @@ function drawEncuestaDonut(canvasId, field, colors) {
   ctx.arc(cx, cy, inner, 0, 2 * Math.PI);
   ctx.fillStyle = dark ? "#1a2319" : "#fff";
   ctx.fill();
+  ctx.textBaseline = "alphabetic";
 
-  // Leyenda
-  const legX = size + 16, legY0 = (ch - entries.length * 24) / 2;
+  // Etiquetas Sí / No debajo del donut centradas
+  const legY0 = ch - 18;
+  const totalW = entries.length * 60;
   entries.forEach(([label, count], i) => {
     const pct = Math.round(count / respTotal * 100);
-    const y = legY0 + i * 22;
+    const lx = (cw - totalW) / 2 + i * 60 + 5;
     ctx.fillStyle = colors[i % colors.length];
-    rr(ctx, legX, y + 3, 10, 10, 2);
-    ctx.fill();
+    rr(ctx, lx, legY0, 8, 8, 2); ctx.fill();
     ctx.fillStyle = textC; ctx.font = `10px 'Helvetica Neue',Arial`; ctx.textAlign = "left";
-    const shortLabel = label.length > 18 ? label.slice(0,17)+"…" : label;
-    ctx.fillText(shortLabel, legX + 14, y + 12);
-    ctx.fillStyle = textS; ctx.font = `700 10px 'Helvetica Neue',Arial`; ctx.textAlign = "right";
-    ctx.fillText(`${pct}%`, cw - 2, y + 12);
+    ctx.fillText(label, lx + 11, legY0 + 8);
   });
 }
 
