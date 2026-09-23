@@ -316,7 +316,7 @@ function cicloNum(c){ const m=String(c).match(/\d+/); return m?+m[0]:9999; }
 
 function init() {
   const u = k => [...new Set(DATA.map(d => (d[k]||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"es"));
-  fill("f-ciclo", ciclosOrdenados());
+  fill("f-ciclo", ciclosOrdenados().filter(c => c !== "Anterior"));
   fill("f-directora", u("directora"));
   fill("f-region", u("region"));
   fill("f-categoria", u("categoria"));
