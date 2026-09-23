@@ -285,11 +285,9 @@ async function doUnlock(savedPw) {
     const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64buf(payload.iv) }, key, b64buf(payload.ct));
     const obj = JSON.parse(new TextDecoder().decode(pt));
     META_DATA = obj.meta; DATA = obj.data;
-    // Solo ciclos del calendario (C1-26 en adelante); los ingresos previos ('Anterior') no se muestran
-    const etiqueta = c => /^\d+$/.test(c) ? `C${c}-26` : c;
+    // Solo ciclos del calendario; los ingresos previos al primer C1 ('Anterior') no se muestran
     const delCalendario = new Set(META_DATA.ciclos || []);
-    DATA = DATA.filter(d => delCalendario.has(d.ciclo)).map(d => ({...d, ciclo: etiqueta(d.ciclo)}));
-    META_DATA.ciclos = (META_DATA.ciclos || []).map(etiqueta);
+    DATA = DATA.filter(d => delCalendario.has(d.ciclo));
     sessionStorage.setItem("bg_dash_key", pw);
     document.getElementById("lock-overlay").style.display = "none";
     document.getElementById("ts-updated").textContent = META_DATA.actualizado;
@@ -317,7 +315,8 @@ function ciclosOrdenados() {
   if (presentes.includes("Anterior")) orden.push("Anterior");
   return orden;
 }
-function cicloNum(c){ const m=String(c).match(/\d+/); return m?+m[0]:9999; }
+// posición en el calendario: ordena bien entre años (C16-26 antes que C1-27)
+function cicloNum(c){ const i=(META_DATA.ciclos||[]).indexOf(c); return i>=0?i:9999; }
 
 function init() {
   const u = k => [...new Set(DATA.map(d => (d[k]||"").trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"es"));
