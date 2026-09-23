@@ -285,6 +285,11 @@ async function doUnlock(savedPw) {
     const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64buf(payload.iv) }, key, b64buf(payload.ct));
     const obj = JSON.parse(new TextDecoder().decode(pt));
     META_DATA = obj.meta; DATA = obj.data;
+    // Solo ciclos del calendario (C1-26 en adelante); los ingresos previos ('Anterior') no se muestran
+    const etiqueta = c => /^\d+$/.test(c) ? `C${c}-26` : c;
+    const delCalendario = new Set(META_DATA.ciclos || []);
+    DATA = DATA.filter(d => delCalendario.has(d.ciclo)).map(d => ({...d, ciclo: etiqueta(d.ciclo)}));
+    META_DATA.ciclos = (META_DATA.ciclos || []).map(etiqueta);
     sessionStorage.setItem("bg_dash_key", pw);
     document.getElementById("lock-overlay").style.display = "none";
     document.getElementById("ts-updated").textContent = META_DATA.actualizado;
