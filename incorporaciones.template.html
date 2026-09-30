@@ -194,13 +194,13 @@ tr.dir-row:hover td{background:var(--green-50);}
   <div class="main-content">
     <div class="sec-title">Indicadores</div>
     <div class="kpi-grid">
-      <div class="kpi-card c-green"><div class="kpi-lbl">Incorporaciones (filtro)</div><div class="kpi-val" id="kpi-total">&mdash;</div><div class="kpi-sub">según filtros activos</div></div>
+      <div class="kpi-card c-green"><div class="kpi-lbl" id="kpi-total-lbl">Inscritos (filtro)</div><div class="kpi-val" id="kpi-total">&mdash;</div><div class="kpi-sub">según filtros activos</div></div>
       <div class="kpi-card"><div class="kpi-lbl">Nuevos (primera vez)</div><div class="kpi-val" id="kpi-nuevos">&mdash;</div><div class="kpi-sub" id="kpi-nuevos-pct"></div></div>
       <div class="kpi-card c-lead"><div class="kpi-lbl">Leads (por formulario)</div><div class="kpi-val" id="kpi-leads">&mdash;</div><div class="kpi-sub" id="kpi-leads-pct"></div></div>
       <div class="kpi-card c-reingreso"><div class="kpi-lbl">Reingresos (volvieron)</div><div class="kpi-val" id="kpi-reingresos">&mdash;</div><div class="kpi-sub" id="kpi-reingresos-pct"></div></div>
       <div class="kpi-card c-green"><div class="kpi-lbl">Activadas (≥ 70 pts)</div><div class="kpi-val" id="kpi-act">&mdash;</div><div class="kpi-sub" id="kpi-act-pct"></div></div>
       <div class="kpi-card"><div class="kpi-lbl">Directoras que incorporaron</div><div class="kpi-val" id="kpi-dirs">&mdash;</div><div class="kpi-sub">con al menos 1 incorporación</div></div>
-      <div class="kpi-card"><div class="kpi-lbl">Total red</div><div class="kpi-val" id="kpi-red">&mdash;</div><div class="kpi-sub">distribuidores registrados</div></div>
+      <div class="kpi-card"><div class="kpi-lbl">Siguen activas hoy</div><div class="kpi-val" id="kpi-red">&mdash;</div><div class="kpi-sub" id="kpi-red-pct"></div></div>
     </div>
 
     <div class="sec-title">Evolución por ciclo</div>
@@ -237,7 +237,7 @@ tr.dir-row:hover td{background:var(--green-50);}
       </div>
       <div class="table-wrap">
         <table><thead><tr>
-          <th>Nombre</th><th>RUT</th><th>Tipo</th><th>Compró</th><th>Ciclo registro</th><th>Ciclo activación</th><th>Fecha ingreso</th><th>Categoría</th><th>Región</th><th>Comuna</th><th>Primera directora</th><th>Baja anterior</th>
+          <th>Nombre</th><th>RUT</th><th>Tipo</th><th>Compró</th><th>Ciclo registro</th><th>Ciclo activación</th><th>Estado hoy</th><th>Fecha ingreso</th><th>Categoría</th><th>Región</th><th>Comuna</th><th>Primera directora</th><th>Baja anterior</th>
         </tr></thead><tbody id="tbody-det"></tbody></table>
       </div>
       <div class="pagination" id="pag-det"></div>
@@ -291,9 +291,9 @@ async function doUnlock(savedPw) {
     META_DATA = obj.meta; DATA = obj.data;
     // Solo ciclos del calendario; los ingresos previos al primer C1 ('Anterior') no se muestran
     const delCalendario = new Set(META_DATA.ciclos || []);
-    DATA_ALL = DATA.filter(d => delCalendario.has(d.ciclo));
+    DATA_ALL = DATA;
     DATA_ALL.forEach(d => { d.ciclo_reg = d.ciclo; });
-    DATA = DATA_ALL;
+    DATA = DATA_ALL.filter(d => delCalendario.has(d.ciclo_reg));
     sessionStorage.setItem("bg_dash_key", pw);
     document.getElementById("lock-overlay").style.display = "none";
     document.getElementById("ts-updated").textContent = META_DATA.actualizado;
@@ -337,8 +337,9 @@ function init() {
 function esActivada(d){ return (META_DATA.ciclos||[]).includes(d.ciclo_act); }
 function setModo(){
   const act = gf("f-modo") === "act";
+  const cal = new Set(META_DATA.ciclos || []);
   DATA_ALL.forEach(d => { d.ciclo = act ? d.ciclo_act : d.ciclo_reg; });
-  DATA = act ? DATA_ALL.filter(esActivada) : DATA_ALL;
+  DATA = DATA_ALL.filter(d => cal.has(d.ciclo));
   applyFilters();
 }
 function tipoDe(d){ return d.reingreso ? "reingreso" : (d.por_lead ? "lead" : "nuevo"); }
@@ -434,10 +435,13 @@ function renderKPIs(){
   setTxt("kpi-reingresos", nRe.toLocaleString("es-CL"));
   setTxt("kpi-reingresos-pct", pc(nRe)+"% ya estuvieron antes");
   const nAct=filtered.filter(esActivada).length;
+  setTxt("kpi-total-lbl", gf("f-modo")==="act" ? "Incorporados efectivos" : "Inscritos (filtro)");
   setTxt("kpi-act", nAct.toLocaleString("es-CL"));
   setTxt("kpi-act-pct", gf("f-modo")==="act" ? "por ciclo de activación" : pc(nAct)+"% de las registradas");
   setTxt("kpi-dirs", dirs.size.toLocaleString("es-CL"));
-  setTxt("kpi-red", DATA.length.toLocaleString("es-CL"));
+  const nVivas=filtered.filter(d=>d.activa_hoy).length;
+  setTxt("kpi-red", nVivas.toLocaleString("es-CL"));
+  setTxt("kpi-red-pct", pc(nVivas)+"% no se han dado de baja");
 }
 
 let expandedDir=null;
@@ -504,6 +508,7 @@ function renderDetalle(){
     <td>${d.compro?'<span style="color:var(--green-dark);font-weight:700">Sí</span>':'<span style="color:var(--text-faint)">No</span>'}</td>
     <td><span class="pill">${esc(d.ciclo_reg)||"—"}</span></td>
     <td>${esActivada(d)?`<span class="pill pill-nuevo">${esc(d.ciclo_act)}</span>`:'<span style="color:var(--text-faint)">Sin activar</span>'}</td>
+    <td>${d.activa_hoy?'<span style="color:var(--green-dark);font-weight:600">Activa</span>':'<span style="color:var(--text-faint)">De baja</span>'}</td>
     <td>${esc(d.fecha)||"—"}</td>
     <td>${esc(d.categoria)||"—"}</td>
     <td style="font-size:11.5px">${esc(d.region)}</td>
@@ -587,8 +592,8 @@ function exportExcel(){
   const lines=["Primera directora;Incorporaciones;Ciclo actual ("+(actual||"")+")"];
   rows.forEach(([d,s])=>lines.push(`${d};${s.t};${s.a}`));
   lines.push("");
-  lines.push("Nombre;RUT;Tipo;Compró;Ciclos comprados;Ciclo registro;Ciclo activación;Fecha ingreso;Categoría;Región;Comuna;Primera directora;Fecha baja anterior;Motivo baja");
-  filtered.forEach(d=>lines.push([d.nombre,d.rut,{reingreso:"Reingreso",lead:"Lead",nuevo:"Nuevo"}[tipoDe(d)],d.compro?"Sí":"No",d.ciclos_comp||0,d.ciclo_reg,esActivada(d)?d.ciclo_act:"Sin activar",d.fecha,d.categoria,d.region,d.comuna,d.directora,d.fecha_baja||"",d.motivo_baja||""]
+  lines.push("Nombre;RUT;Tipo;Compró;Ciclos comprados;Ciclo registro;Ciclo activación;Estado hoy;Fecha ingreso;Categoría;Región;Comuna;Primera directora;Fecha baja anterior;Motivo baja");
+  filtered.forEach(d=>lines.push([d.nombre,d.rut,{reingreso:"Reingreso",lead:"Lead",nuevo:"Nuevo"}[tipoDe(d)],d.compro?"Sí":"No",d.ciclos_comp||0,d.ciclo_reg,esActivada(d)?d.ciclo_act:"Sin activar",d.activa_hoy?"Activa":"De baja",d.fecha,d.categoria,d.region,d.comuna,d.directora,d.fecha_baja||"",d.motivo_baja||""]
     .map(v=>{const s=String(v==null?"":v);return /[";\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(";")));
   const blob=new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);
