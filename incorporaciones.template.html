@@ -83,7 +83,7 @@ html,body{height:100%;font-family:'Helvetica Neue',Arial,sans-serif;background:v
 .sec-title{font-size:10px;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:.08em;margin:20px 0 10px;display:flex;align-items:center;gap:8px;}
 .sec-title::after{content:'';flex:1;height:1px;background:var(--border);}
 .kpi-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
-@media(min-width:900px){.kpi-grid{grid-template-columns:repeat(6,minmax(0,1fr));}}
+@media(min-width:900px){.kpi-grid{grid-template-columns:repeat(7,minmax(0,1fr));}}
 .kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px 12px;box-shadow:var(--shadow);position:relative;overflow:hidden;}
 .kpi-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--border);}
 .kpi-card.c-green::before{background:var(--green);}
@@ -165,6 +165,8 @@ tr.dir-row:hover td{background:var(--green-50);}
   </div></div>
   <div class="sidebar-filters">
     <div class="filter-title">Filtros</div>
+    <div class="filter-group"><span class="filter-lbl">Contar por</span>
+      <select class="filter-select" id="f-modo" onchange="setModo()"><option value="reg">Registro (fecha de registro)</option><option value="act">Activación (1.ª compra ≥ 70 pts)</option></select></div>
     <div class="filter-group"><span class="filter-lbl">Ciclo</span>
       <select class="filter-select" id="f-ciclo" onchange="applyFilters()"><option value="">Todos</option></select></div>
     <div class="filter-group"><span class="filter-lbl">Tipo</span>
@@ -196,6 +198,7 @@ tr.dir-row:hover td{background:var(--green-50);}
       <div class="kpi-card"><div class="kpi-lbl">Nuevos (primera vez)</div><div class="kpi-val" id="kpi-nuevos">&mdash;</div><div class="kpi-sub" id="kpi-nuevos-pct"></div></div>
       <div class="kpi-card c-lead"><div class="kpi-lbl">Leads (por formulario)</div><div class="kpi-val" id="kpi-leads">&mdash;</div><div class="kpi-sub" id="kpi-leads-pct"></div></div>
       <div class="kpi-card c-reingreso"><div class="kpi-lbl">Reingresos (volvieron)</div><div class="kpi-val" id="kpi-reingresos">&mdash;</div><div class="kpi-sub" id="kpi-reingresos-pct"></div></div>
+      <div class="kpi-card c-green"><div class="kpi-lbl">Activadas (≥ 70 pts)</div><div class="kpi-val" id="kpi-act">&mdash;</div><div class="kpi-sub" id="kpi-act-pct"></div></div>
       <div class="kpi-card"><div class="kpi-lbl">Directoras que incorporaron</div><div class="kpi-val" id="kpi-dirs">&mdash;</div><div class="kpi-sub">con al menos 1 incorporación</div></div>
       <div class="kpi-card"><div class="kpi-lbl">Total red</div><div class="kpi-val" id="kpi-red">&mdash;</div><div class="kpi-sub">distribuidores registrados</div></div>
     </div>
@@ -234,7 +237,7 @@ tr.dir-row:hover td{background:var(--green-50);}
       </div>
       <div class="table-wrap">
         <table><thead><tr>
-          <th>Nombre</th><th>RUT</th><th>Tipo</th><th>Compró</th><th>Ciclo</th><th>Fecha ingreso</th><th>Categoría</th><th>Región</th><th>Comuna</th><th>Primera directora</th><th>Baja anterior</th>
+          <th>Nombre</th><th>RUT</th><th>Tipo</th><th>Compró</th><th>Ciclo registro</th><th>Ciclo activación</th><th>Fecha ingreso</th><th>Categoría</th><th>Región</th><th>Comuna</th><th>Primera directora</th><th>Baja anterior</th>
         </tr></thead><tbody id="tbody-det"></tbody></table>
       </div>
       <div class="pagination" id="pag-det"></div>
@@ -248,6 +251,7 @@ tr.dir-row:hover td{background:var(--green-50);}
 const ENC_PAYLOAD = "__ENC_PAYLOAD__";
 let META_DATA = { actualizado: "—", ciclos: [] };
 let DATA = [];
+let DATA_ALL = [];
 </script>
 <script>
 let filtered = [];
@@ -287,7 +291,9 @@ async function doUnlock(savedPw) {
     META_DATA = obj.meta; DATA = obj.data;
     // Solo ciclos del calendario; los ingresos previos al primer C1 ('Anterior') no se muestran
     const delCalendario = new Set(META_DATA.ciclos || []);
-    DATA = DATA.filter(d => delCalendario.has(d.ciclo));
+    DATA_ALL = DATA.filter(d => delCalendario.has(d.ciclo));
+    DATA_ALL.forEach(d => { d.ciclo_reg = d.ciclo; });
+    DATA = DATA_ALL;
     sessionStorage.setItem("bg_dash_key", pw);
     document.getElementById("lock-overlay").style.display = "none";
     document.getElementById("ts-updated").textContent = META_DATA.actualizado;
@@ -324,6 +330,15 @@ function init() {
   fill("f-directora", u("directora"));
   fill("f-region", u("region"));
   fill("f-categoria", u("categoria"));
+  setModo();
+}
+// Registro: ciclo de la fecha de registro. Activación: primer ciclo con >= 70 pts
+// (quien aún no se activa queda fuera del conteo en ese modo).
+function esActivada(d){ return (META_DATA.ciclos||[]).includes(d.ciclo_act); }
+function setModo(){
+  const act = gf("f-modo") === "act";
+  DATA_ALL.forEach(d => { d.ciclo = act ? d.ciclo_act : d.ciclo_reg; });
+  DATA = act ? DATA_ALL.filter(esActivada) : DATA_ALL;
   applyFilters();
 }
 function tipoDe(d){ return d.reingreso ? "reingreso" : (d.por_lead ? "lead" : "nuevo"); }
@@ -387,7 +402,7 @@ function renderTablaCatCiclo(){
     +`<td>${tot.tt}</td></tr>`;
   document.getElementById("tbody-catciclo").innerHTML=rows;
 }
-function resetFilters(){ ["f-ciclo","f-tipo","f-directora","f-region","f-categoria"].forEach(id=>document.getElementById(id).value=""); applyFilters(); }
+function resetFilters(){ ["f-ciclo","f-tipo","f-directora","f-region","f-categoria"].forEach(id=>document.getElementById(id).value=""); document.getElementById("f-modo").value="reg"; setModo(); }
 
 function updateSummary(){
   const parts=[];
@@ -418,6 +433,9 @@ function renderKPIs(){
   setTxt("kpi-leads-pct", pc(nLe)+"% por formulario");
   setTxt("kpi-reingresos", nRe.toLocaleString("es-CL"));
   setTxt("kpi-reingresos-pct", pc(nRe)+"% ya estuvieron antes");
+  const nAct=filtered.filter(esActivada).length;
+  setTxt("kpi-act", nAct.toLocaleString("es-CL"));
+  setTxt("kpi-act-pct", gf("f-modo")==="act" ? "por ciclo de activación" : pc(nAct)+"% de las registradas");
   setTxt("kpi-dirs", dirs.size.toLocaleString("es-CL"));
   setTxt("kpi-red", DATA.length.toLocaleString("es-CL"));
 }
@@ -484,7 +502,8 @@ function renderDetalle(){
     <td style="font-size:11px;color:var(--text-muted)">${esc(d.rut)||"—"}</td>
     <td>${pillTipo(d)}</td>
     <td>${d.compro?'<span style="color:var(--green-dark);font-weight:700">Sí</span>':'<span style="color:var(--text-faint)">No</span>'}</td>
-    <td><span class="pill">${esc(d.ciclo)||"—"}</span></td>
+    <td><span class="pill">${esc(d.ciclo_reg)||"—"}</span></td>
+    <td>${esActivada(d)?`<span class="pill pill-nuevo">${esc(d.ciclo_act)}</span>`:'<span style="color:var(--text-faint)">Sin activar</span>'}</td>
     <td>${esc(d.fecha)||"—"}</td>
     <td>${esc(d.categoria)||"—"}</td>
     <td style="font-size:11.5px">${esc(d.region)}</td>
@@ -568,8 +587,8 @@ function exportExcel(){
   const lines=["Primera directora;Incorporaciones;Ciclo actual ("+(actual||"")+")"];
   rows.forEach(([d,s])=>lines.push(`${d};${s.t};${s.a}`));
   lines.push("");
-  lines.push("Nombre;RUT;Tipo;Compró;Ciclos comprados;Ciclo;Fecha ingreso;Categoría;Región;Comuna;Primera directora;Fecha baja anterior;Motivo baja");
-  filtered.forEach(d=>lines.push([d.nombre,d.rut,{reingreso:"Reingreso",lead:"Lead",nuevo:"Nuevo"}[tipoDe(d)],d.compro?"Sí":"No",d.ciclos_comp||0,d.ciclo,d.fecha,d.categoria,d.region,d.comuna,d.directora,d.fecha_baja||"",d.motivo_baja||""]
+  lines.push("Nombre;RUT;Tipo;Compró;Ciclos comprados;Ciclo registro;Ciclo activación;Fecha ingreso;Categoría;Región;Comuna;Primera directora;Fecha baja anterior;Motivo baja");
+  filtered.forEach(d=>lines.push([d.nombre,d.rut,{reingreso:"Reingreso",lead:"Lead",nuevo:"Nuevo"}[tipoDe(d)],d.compro?"Sí":"No",d.ciclos_comp||0,d.ciclo_reg,esActivada(d)?d.ciclo_act:"Sin activar",d.fecha,d.categoria,d.region,d.comuna,d.directora,d.fecha_baja||"",d.motivo_baja||""]
     .map(v=>{const s=String(v==null?"":v);return /[";\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}).join(";")));
   const blob=new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);
